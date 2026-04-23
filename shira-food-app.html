@@ -1,0 +1,1841 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<title>Shira's Menu</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="התפריט"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#F2F2F7"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; overflow: hidden;
+    background: #F2F2F7;
+    font-family: 'Heebo', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none; user-select: none;
+  }
+  #root { position: fixed; inset: 0; display: flex; flex-direction: column; background: #F2F2F7; }
+  input, textarea { -webkit-user-select: text; user-select: text; }
+  ::-webkit-scrollbar { display: none; }
+  @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes slideUp   { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @keyframes fadeIn    { from { opacity: 0; } to { opacity: 1; } }
+  button:active { transform: scale(0.97); transition: transform 0.1s; }
+  input[type="range"] { width: 100%; accent-color: #D97757; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+// ─── TOKENS ────────────────────────────────────────────────────────────────
+const HF = {
+  bg: '#F2F2F7', card: '#FFFFFF', cardAlt: '#FBFAF7',
+  ink: '#1C1C1E', inkSub: '#6C6C70', inkFaint: '#AEAEB2',
+  hairline: 'rgba(60,60,67,0.12)',
+  accent: '#D97757', accentSoft: '#FAE8DF', accentInk: '#8A3F1F',
+  water: '#4A9BC4', waterSoft: '#DAEEF7', waterInk: '#1F5776',
+  success: '#52B788', successSoft: '#E4F3EA',
+  font: '"Heebo", -apple-system, BlinkMacSystemFont, system-ui, sans-serif',
+  cardShadow: '0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)',
+};
+
+const T = {
+  today_date: 'יום שלישי, 21 באפריל',
+  today_date_short: 'יום ג׳, 21 באפר׳',
+  good_morning: 'בוקר טוב,',
+  tab_home: 'היום', tab_plan: 'תפריט', tab_library: 'ארוחות', tab_water: 'מים', tab_me: 'אני',
+  water_label: 'מים', tap_to_fill: 'הקישי למילוי ›',
+  glasses_of: (a, b) => `${a} מתוך ${b} כוסות`,
+  up_next: 'הבא בתור',
+  in_min: (n) => `בעוד ${n} דק׳`,
+  ago_min: (n) => `לפני ${n} דק׳`,
+  today_meals: 'הארוחות של היום',
+  see_all: 'הצג הכל',
+  from_partner: (n) => `פתק מ${n}`,
+  calories: 'קלוריות', protein: 'חלבון',
+  of_kcal: (g) => `מתוך ${g.toLocaleString()} קק״ל`,
+  of_g: (g) => `מתוך ${g} גרם`,
+  today: 'היום', now: 'עכשיו',
+  i_ate_it: '✓ אכלתי', skip: 'דילוג',
+  eaten: '✓ נאכל', skipped: '× דולג', undo: 'בטל',
+  meal_type: { Breakfast: 'ארוחת בוקר', Snack: 'חטיף', Lunch: 'ארוחת צהריים', Dinner: 'ארוחת ערב' },
+  of_l: (l) => `מתוך ${l} ליטר`,
+  drag_up_to_fill: 'גררי למעלה למילוי',
+};
+
+// ─── ICONS ─────────────────────────────────────────────────────────────────
+const Icon = {
+  home: (c) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1v-9.5z" stroke={c} strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+  cal:  (c) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="16" rx="2" stroke={c} strokeWidth="1.8"/><path d="M3 9h18M8 3v4M16 3v4" stroke={c} strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  drop: (c, fill) => <svg width="24" height="24" viewBox="0 0 24 24" fill={fill||'none'}><path d="M12 3c-3 4-6 7.5-6 11a6 6 0 0012 0c0-3.5-3-7-6-11z" stroke={c} strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+  user: (c) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke={c} strokeWidth="1.8"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6" stroke={c} strokeWidth="1.8" strokeLinecap="round"/></svg>,
+  check: (c) => <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke={c} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  chevron: (c) => <svg width="10" height="16" viewBox="0 0 10 16" fill="none" style={{transform:'scaleX(-1)'}}><path d="M2 2l6 6-6 6" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  x: (c) => <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke={c} strokeWidth="2.2" strokeLinecap="round"/></svg>,
+  plus: (c) => <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke={c} strokeWidth="2" strokeLinecap="round"/></svg>,
+  bell: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 3a5 5 0 00-5 5v3l-1.5 2h13L15 11V8a5 5 0 00-5-5zM8 16a2 2 0 004 0" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+  book: (c) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 4h7a3 3 0 013 3v14a2 2 0 00-2-2H4V4zM20 4h-7a3 3 0 00-3 3v14a2 2 0 012-2h8V4z" stroke={c} strokeWidth="1.8" strokeLinejoin="round"/></svg>,
+  heart: (c, fill) => <svg width="16" height="16" viewBox="0 0 16 16" fill={fill||'none'}><path d="M8 14s-6-3.5-6-8a3.5 3.5 0 016-2.5A3.5 3.5 0 0114 6c0 4.5-6 8-6 8z" stroke={c} strokeWidth="1.6" strokeLinejoin="round"/></svg>,
+};
+
+// ─── MEAL STYLE ────────────────────────────────────────────────────────────
+const MEAL_STYLES = {
+  Breakfast: { emoji: '🥣', bg: '#FFF2D6' },
+  Snack:     { emoji: '🍎', bg: '#E8F3DC' },
+  Lunch:     { emoji: '🍚', bg: '#FAE8DF' },
+  Dinner:    { emoji: '🐟', bg: '#DEEBF5' },
+};
+function mealStyle(type) { return MEAL_STYLES[type] || { emoji: '🍽️', bg: '#F0F0F0' }; }
+function mealTypeName(type) { return T.meal_type[type] || type; }
+
+// ─── STATE ─────────────────────────────────────────────────────────────────
+const STATE_KEY = 'shira_food_app_v3';
+const DEFAULT_GOALS = { water_ml: 2500, calories: 1800, protein: 100 };
+
+const DEFAULT_LIBRARY = [
+  // ── Breakfasts ──────────────────────────────────────────────────────────────
+  { id: 'lib_b_week', name: 'ארוחת בוקר — ביצים עם לחם', type: 'Breakfast', kcal: 320, protein: 22,
+    ingredients: ['2 ביצים (בכל סגנון)', 'פרוסה אחת לחם כוסמין או מלא', '2 כפות גדושות קוטג׳ 5% / גבינה לבנה 5%', 'ירקות טריים חתוכים בנדיבות (ללא שמן)'] },
+  { id: 'lib_b_fri',  name: 'ארוחת בוקר שישי — יוגורט חלבון', type: 'Breakfast', kcal: 200, protein: 20,
+    ingredients: ['יוגורט מועשר בחלבון (GO / PRO)', 'מנת פרי אחת'] },
+  { id: 'lib_b_sat',  name: 'ארוחת בוקר שבת — לחם עם קוטג׳', type: 'Breakfast', kcal: 220, protein: 14,
+    ingredients: ['פרוסת לחם כוסמין', 'קוטג׳ 5% או ביצה קשה'] },
+
+  // ── Lunches ─────────────────────────────────────────────────────────────────
+  { id: 'lib_l_week', name: 'ארוחת צהריים — חלבון עם פחמימה', type: 'Lunch', kcal: 500, protein: 45,
+    ingredients: ['200 גרם חזה עוף / פילה דג / טופו (לאחר בישול)', '3 כפות פחמימה מבושלת (קינואה / בורגול / כוסמת / בטטה)', 'שפע ירקות ירוקים (ברוקולי / שעועית ירוקה / קישואים)'] },
+  { id: 'lib_l_fri',  name: 'ארוחת צהריים שישי — סלט חלבון', type: 'Lunch', kcal: 300, protein: 28,
+    ingredients: ['סלט ירקות גדול', '2 ביצים קשות או קופסת טונה במים'] },
+  { id: 'lib_l_sat',  name: 'ארוחת צהריים שבת — ארוחה בשרית', type: 'Lunch', kcal: 550, protein: 40,
+    ingredients: ['מנה בשרית (עוף בתנור או מהחמין)', '3 כפות אורז או תפוח אדמה', 'הרבה סלטים טריים'] },
+
+  // ── Snacks ──────────────────────────────────────────────────────────────────
+  { id: 'lib_s_week', name: 'חטיף — יוגורט חלבון ופרי', type: 'Snack', kcal: 200, protein: 20,
+    ingredients: ['יוגורט מועשר בחלבון GO / PRO (20 גרם חלבון)', 'מנת פרי אחת (תפוח / אגס / כוס פירות יער)'] },
+  { id: 'lib_s_sat',  name: 'חטיף שבת — פינוק קטן', type: 'Snack', kcal: 200, protein: 5,
+    ingredients: ['פרוסת עוגה ביתית / 2 עוגיות ליד הקפה', 'או: 2 תמרים עם אגוזי מלך'] },
+
+  // ── Dinners ─────────────────────────────────────────────────────────────────
+  { id: 'lib_d_week', name: 'ארוחת ערב — פיתה עם טונה', type: 'Dinner', kcal: 380, protein: 35,
+    ingredients: ['פיתה כוסמין אחת (עד 99 קק״ל)', 'קופסת טונה במים (מסוננת היטב)', '2 כפות קוטג׳ 5%', 'סלט ירקות גדול', 'חצי כף טחינה גולמית (משומשום מלא)'] },
+  { id: 'lib_d_fri',  name: 'ארוחת ערב שישי — דג', type: 'Dinner', kcal: 300, protein: 35,
+    ingredients: ['פילה דג (לפי הכנת הבית)'] },
+  { id: 'lib_d_sat',  name: 'ארוחת ערב שבת — חזרה לשגרה', type: 'Dinner', kcal: 200, protein: 25,
+    ingredients: ['משקה חלבון', 'או: חצי פיתה כוסמין עם גבינה קלה'] },
+
+  // ── Pre-sleep ────────────────────────────────────────────────────────────────
+  { id: 'lib_sleep',  name: 'משקה חלבון לפני שינה', type: 'Snack', kcal: 120, protein: 25,
+    ingredients: ['משקה חלבון (שייק / אבקת חלבון)'] },
+];
+
+const DEFAULT_SCHEDULE = {
+  oneoff: [],
+  recurring: [
+    // Breakfasts
+    { id: 'r_b_week', libId: 'lib_b_week', dow: [0,1,2,3,4], time: '08:00' },
+    { id: 'r_b_fri',  libId: 'lib_b_fri',  dow: [5],          time: '08:30' },
+    { id: 'r_b_sat',  libId: 'lib_b_sat',  dow: [6],          time: '09:00' },
+    // Lunches
+    { id: 'r_l_week', libId: 'lib_l_week', dow: [0,1,2,3,4], time: '13:00' },
+    { id: 'r_l_fri',  libId: 'lib_l_fri',  dow: [5],          time: '13:00' },
+    { id: 'r_l_sat',  libId: 'lib_l_sat',  dow: [6],          time: '13:30' },
+    // Snacks
+    { id: 'r_s_week', libId: 'lib_s_week', dow: [0,1,2,3,4], time: '16:30' },
+    { id: 'r_s_sat',  libId: 'lib_s_sat',  dow: [6],          time: '16:30' },
+    // Dinners
+    { id: 'r_d_week', libId: 'lib_d_week', dow: [0,1,2,3,4], time: '19:30' },
+    { id: 'r_d_fri',  libId: 'lib_d_fri',  dow: [5],          time: '19:30' },
+    { id: 'r_d_sat',  libId: 'lib_d_sat',  dow: [6],          time: '20:00' },
+    // Pre-sleep
+    { id: 'r_sleep',  libId: 'lib_sleep',  dow: [0,1,2,3,4], time: '22:00' },
+  ],
+};
+
+const _today = new Date();
+const TODAY_DOW  = _today.getDay(); // 0=Sun … 6=Sat
+const TODAY_DATE = _today.toISOString().slice(0, 10);
+
+function timeToMinutes(t) { const [h, m] = t.split(':').map(Number); return h * 60 + m; }
+function minutesUntil(t, nowMin) { return timeToMinutes(t) - nowMin; }
+
+function estKcal(lib) { return lib.kcal || { Breakfast:380, Snack:180, Lunch:520, Dinner:550 }[lib.type] || 300; }
+function estProtein(lib) { return lib.protein || { Breakfast:14, Snack:8, Lunch:38, Dinner:42 }[lib.type] || 15; }
+
+function computeTodayMeals(state) {
+  const lib = Object.fromEntries(state.library.map(l => [l.id, l]));
+  const out = [];
+  state.schedule.recurring.forEach(r => {
+    if (r.dow.includes(TODAY_DOW) && lib[r.libId]) {
+      out.push({
+        id: `today_${r.id}`, libId: r.libId, time: r.time,
+        type: lib[r.libId].type, name: lib[r.libId].name,
+        ingredients: lib[r.libId].ingredients,
+        kcal: estKcal(lib[r.libId]), protein: estProtein(lib[r.libId]),
+        note: null,
+        mins: 15,
+      });
+    }
+  });
+  state.schedule.oneoff.filter(o => o.date === TODAY_DATE).forEach(o => {
+    if (lib[o.libId]) {
+      out.push({
+        id: `today_oo_${o.id}`, libId: o.libId, time: o.time,
+        type: lib[o.libId].type, name: lib[o.libId].name,
+        ingredients: lib[o.libId].ingredients,
+        kcal: estKcal(lib[o.libId]), protein: estProtein(lib[o.libId]),
+        mins: 10,
+      });
+    }
+  });
+  out.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+  return out;
+}
+
+function totalKcal(meals, status) {
+  return meals.filter(m => status[m.id] === 'done').reduce((a, m) => a + m.kcal, 0);
+}
+function totalProtein(meals, status) {
+  return meals.filter(m => status[m.id] === 'done').reduce((a, m) => a + m.protein, 0);
+}
+function nextMeal(meals, status, nowMin) {
+  const pending = meals.filter(m => !status[m.id]);
+  if (!pending.length) return null;
+  return pending.find(m => timeToMinutes(m.time) >= nowMin) || pending[0];
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STATE_KEY);
+    if (raw) return { ...getInitial(), ...JSON.parse(raw) };
+  } catch(e) {}
+  return getInitial();
+}
+function getInitial() {
+  return { water_ml: 1500, mealStatus: {}, now_minutes: 12*60+15,
+    library: DEFAULT_LIBRARY, schedule: DEFAULT_SCHEDULE };
+}
+function saveState(s) { try { localStorage.setItem(STATE_KEY, JSON.stringify(s)); } catch(e){} }
+
+const AppCtx = React.createContext(null);
+
+function AppProvider({ children }) {
+  const [state, setState] = React.useState(() => loadState());
+  const [goals, setGoals] = React.useState(DEFAULT_GOALS);
+  React.useEffect(() => { saveState(state); }, [state]);
+  const meals = React.useMemo(() => computeTodayMeals(state), [state]);
+
+  const api = {
+    state, setState, goals, setGoals, meals,
+    library: state.library, schedule: state.schedule,
+    setWater: (ml) => setState(s => ({ ...s, water_ml: Math.max(0, Math.min(goals.water_ml * 1.5, ml)) })),
+    setMealStatus: (id, st) => setState(s => ({ ...s, mealStatus: { ...s.mealStatus, [id]: st } })),
+    clearMeal: (id) => setState(s => { const n={...s.mealStatus}; delete n[id]; return {...s, mealStatus:n}; }),
+    resetDay: () => setState(s => ({ ...getInitial(), library: s.library, schedule: s.schedule })),
+    saveLibraryMeal: (meal) => setState(s => {
+      const exists = s.library.find(l => l.id === meal.id);
+      const next = exists
+        ? s.library.map(l => l.id === meal.id ? meal : l)
+        : [...s.library, { ...meal, id: meal.id || `lib_${Date.now()}` }];
+      return { ...s, library: next };
+    }),
+    deleteLibraryMeal: (id) => setState(s => ({
+      ...s,
+      library: s.library.filter(l => l.id !== id),
+      schedule: {
+        oneoff: s.schedule.oneoff.filter(o => o.libId !== id),
+        recurring: s.schedule.recurring.filter(r => r.libId !== id),
+      },
+    })),
+    scheduleOneoff: (libId, date, time) => setState(s => ({
+      ...s, schedule: { ...s.schedule, oneoff: [...s.schedule.oneoff, { id:`o_${Date.now()}`, libId, date, time }] },
+    })),
+    scheduleRecurring: (libId, dow, time) => setState(s => ({
+      ...s, schedule: { ...s.schedule, recurring: [...s.schedule.recurring, { id:`r_${Date.now()}`, libId, dow, time }] },
+    })),
+  };
+  return <AppCtx.Provider value={api}>{children}</AppCtx.Provider>;
+}
+const useApp = () => React.useContext(AppCtx);
+
+// ─── UI PRIMITIVES ─────────────────────────────────────────────────────────
+function HFTabBar({ active, onChange }) {
+  const tabs = [
+    { id:'home',    label: T.tab_home,    icon: Icon.home },
+    { id:'plan',    label: T.tab_plan,    icon: Icon.cal  },
+    { id:'library', label: T.tab_library, icon: Icon.book },
+    { id:'water',   label: T.tab_water,   icon: Icon.drop },
+    { id:'me',      label: T.tab_me,      icon: Icon.user },
+  ];
+  return (
+    <div style={{
+      position:'fixed', bottom:0, left:0, right:0,
+      paddingTop:6,
+      paddingBottom:'calc(env(safe-area-inset-bottom, 0px) + 6px)',
+      background:'rgba(249,249,249,0.94)', backdropFilter:'blur(20px)',
+      WebkitBackdropFilter:'blur(20px)', borderTop:`0.5px solid ${HF.hairline}`,
+      display:'flex', justifyContent:'space-around', alignItems:'flex-start',
+      zIndex:30,
+    }}>
+      {tabs.map(t => {
+        const isActive = active === t.id;
+        const color = isActive ? HF.accent : HF.inkFaint;
+        return (
+          <button key={t.id} onClick={() => onChange(t.id)} style={{
+            border:'none', background:'none', cursor:'pointer',
+            display:'flex', flexDirection:'column', alignItems:'center',
+            gap:3, padding:4, fontFamily: HF.font,
+          }}>
+            {t.icon(color)}
+            <span style={{ fontSize:10, fontWeight:500, color, letterSpacing:0.1 }}>{t.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function HFCard({ children, style={}, onClick, padding=16 }) {
+  return (
+    <div onClick={onClick} style={{
+      background: HF.card, borderRadius:16, padding,
+      boxShadow: HF.cardShadow, cursor: onClick ? 'pointer' : 'default', ...style,
+    }}>{children}</div>
+  );
+}
+
+function HFSection({ label, children, trailing, style={} }) {
+  return (
+    <div style={{ marginTop:24, ...style }}>
+      {label && (
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', padding:'0 20px 8px' }}>
+          <span style={{ fontSize:13, fontWeight:600, color: HF.inkSub, letterSpacing:0.5, textTransform:'uppercase' }}>{label}</span>
+          {trailing}
+        </div>
+      )}
+      <div style={{ padding:'0 16px' }}>{children}</div>
+    </div>
+  );
+}
+
+// ─── HOME ──────────────────────────────────────────────────────────────────
+function HFHome({ onNavigate, onOpenMeal, appName, partnerName }) {
+  const { state, goals, meals } = useApp();
+  const kcal    = totalKcal(meals, state.mealStatus);
+  const protein = totalProtein(meals, state.mealStatus);
+  const next    = nextMeal(meals, state.mealStatus, state.now_minutes);
+  const until   = next ? minutesUntil(next.time, state.now_minutes) : null;
+
+  return (
+    <div style={{ height:'100%', overflowY:'auto', paddingBottom:'calc(env(safe-area-inset-bottom, 0px) + 80px)' }}>
+      <div style={{ padding:'12px 20px 12px', paddingTop:'max(20px, calc(env(safe-area-inset-top, 0px) + 12px))' }}>
+        <div style={{ fontSize:13, fontWeight:500, color: HF.inkSub, letterSpacing:0.3 }}>{T.today_date}</div>
+        <div style={{ fontSize:34, fontWeight:700, letterSpacing:-0.5, lineHeight:1.1, marginTop:2 }}>{T.good_morning}</div>
+        <div style={{ fontSize:34, fontWeight:700, letterSpacing:-0.5, color: HF.accent, lineHeight:1.1 }}>
+          {appName} ✿
+        </div>
+      </div>
+
+      {/* Water hero */}
+      <HFSection>
+        <HFCard onClick={() => onNavigate('water')}
+          style={{ background:`linear-gradient(145deg, ${HF.waterSoft} 0%, #EDF6FB 100%)`, padding:18 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
+            <span style={{ fontSize:13, fontWeight:600, color: HF.waterInk, letterSpacing:0.3 }}>{T.water_label}</span>
+            <span style={{ fontSize:12, color: HF.waterInk, opacity:0.7 }}>{T.tap_to_fill}</span>
+          </div>
+          <div style={{ display:'flex', gap:18, alignItems:'center', marginTop:14 }}>
+            <div style={{ position:'relative', width:60, height:100 }}>
+              <div style={{
+                position:'absolute', top:8, left:0, right:0, bottom:0,
+                borderRadius:'20px 20px 10px 10px', background:'#fff',
+                boxShadow:'inset 0 0 0 2px rgba(31,87,118,0.15)', overflow:'hidden',
+              }}>
+                <div style={{
+                  position:'absolute', bottom:0, left:0, right:0,
+                  height:`${(state.water_ml / goals.water_ml)*100}%`,
+                  background:`linear-gradient(180deg, ${HF.water}, #3A85AD)`,
+                  transition:'height 0.4s ease',
+                }}>
+                  <svg width="100%" height="6" style={{ position:'absolute', top:-3, left:0 }} viewBox="0 0 60 6" preserveAspectRatio="none">
+                    <path d="M0,3 Q15,0 30,3 T60,3 L60,6 L0,6 Z" fill={HF.water}/>
+                  </svg>
+                </div>
+              </div>
+              <div style={{
+                position:'absolute', top:0, left:'50%', transform:'translateX(-50%)',
+                width:24, height:10, background: HF.waterInk, borderRadius:'4px 4px 2px 2px',
+              }}/>
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:40, fontWeight:700, color: HF.waterInk, lineHeight:1, letterSpacing:-1, direction:'ltr', textAlign:'right' }}>
+                {(state.water_ml/1000).toFixed(1)}
+                <span style={{ fontSize:18, fontWeight:500, opacity:0.6 }}> / {goals.water_ml/1000}L</span>
+              </div>
+              <div style={{ fontSize:13, color: HF.waterInk, opacity:0.7, marginTop:2 }}>
+                {T.glasses_of(Math.round(state.water_ml/250), Math.round(goals.water_ml/250))}
+              </div>
+              <div style={{ display:'flex', gap:3, marginTop:10 }}>
+                {Array.from({ length: Math.round(goals.water_ml/250) }).map((_, i) => (
+                  <div key={i} style={{
+                    flex:1, maxWidth:16, height:18, borderRadius:3,
+                    background: i < Math.round(state.water_ml/250) ? HF.water : 'rgba(31,87,118,0.12)',
+                    transition:'background 0.3s',
+                  }}/>
+                ))}
+              </div>
+            </div>
+          </div>
+        </HFCard>
+      </HFSection>
+
+      {/* Cal + Protein */}
+      <HFSection style={{ marginTop:12 }}>
+        <div style={{ display:'flex', gap:12 }}>
+          {[
+            { label: T.calories, val: kcal.toLocaleString('he-IL'), goal: T.of_kcal(goals.calories), pct: kcal/goals.calories },
+            { label: T.protein,  val: `${protein}`, unit: ' גרם', goal: T.of_g(goals.protein),      pct: protein/goals.protein },
+          ].map(({ label, val, unit='', goal, pct }) => (
+            <HFCard key={label} style={{ flex:1, padding:14 }}>
+              <div style={{ fontSize:12, fontWeight:600, color: HF.inkSub, letterSpacing:0.3 }}>{label}</div>
+              <div style={{ fontSize:28, fontWeight:700, letterSpacing:-0.5, marginTop:2 }}>
+                {val}<span style={{ fontSize:16, color: HF.inkSub, fontWeight:500 }}>{unit}</span>
+              </div>
+              <div style={{ fontSize:12, color: HF.inkSub }}>{goal}</div>
+              <div style={{ height:4, background:'#F0EFEB', borderRadius:2, marginTop:8, overflow:'hidden' }}>
+                <div style={{
+                  width:`${Math.min(100, pct*100)}%`, height:'100%',
+                  background: HF.accent, borderRadius:2, transition:'width 0.4s',
+                }}/>
+              </div>
+            </HFCard>
+          ))}
+        </div>
+      </HFSection>
+
+      {/* Up next */}
+      {next && (
+        <HFSection label={T.up_next}>
+          <HFCard onClick={() => onOpenMeal(next)}
+            style={{ background: HF.cardAlt, padding:0, overflow:'hidden' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:14, padding:14 }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:12, fontWeight:600, color: HF.accent, letterSpacing:0.3 }}>
+                  {mealTypeName(next.type)} · {until > 0 ? T.in_min(until) : T.ago_min(-until)}
+                </div>
+                <div style={{ fontSize:17, fontWeight:600, letterSpacing:-0.3, marginTop:1 }}>{next.name}</div>
+                <div style={{ fontSize:13, color: HF.inkSub, marginTop:2 }}>
+                  {next.kcal} קק״ל · {next.protein} גרם חלבון
+                </div>
+              </div>
+              {Icon.chevron(HF.inkFaint)}
+            </div>
+          </HFCard>
+        </HFSection>
+      )}
+
+      {/* Note from partner */}
+      <HFSection label={T.from_partner(partnerName)}>
+        <HFCard style={{ background:'#FFFBED', padding:14 }}>
+          <div style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
+            <div style={{ marginTop:1 }}>{Icon.heart(HF.accent, HF.accent)}</div>
+            <div style={{ fontSize:14, lineHeight:1.5, color:'#5A4A2A' }}>
+              אוהב אותך, תאכלי טוב 💛<br/>
+              <span style={{ color:'#8A7A5A' }}>העוף בקופסה הכחולה — אל תשכחי לשתות מים אחר הצהריים</span>
+            </div>
+          </div>
+        </HFCard>
+      </HFSection>
+
+      {/* Today's meals */}
+      <HFSection label={T.today_meals} trailing={
+        <span onClick={() => onNavigate('plan')} style={{ fontSize:14, color: HF.accent, cursor:'pointer' }}>{T.see_all}</span>
+      }>
+        <HFCard padding={0}>
+          {meals.map((m, i) => {
+            const status = state.mealStatus[m.id];
+            const isNext = next && next.id === m.id;
+            return (
+              <div key={m.id} onClick={() => onOpenMeal(m)}
+                style={{
+                  display:'flex', alignItems:'center', gap:12, padding:'10px 14px',
+                  borderBottom: i < meals.length-1 ? `0.5px solid ${HF.hairline}` : 'none',
+                  cursor:'pointer',
+                }}>
+                <div style={{ width:40, textAlign:'center', fontSize:12, fontWeight:500,
+                  color: isNext ? HF.accent : HF.inkSub, direction:'ltr' }}>{m.time}</div>
+                <div style={{ flex:1 }}>
+                  <div style={{
+                    fontSize:15, fontWeight:500,
+                    textDecoration: status==='done' ? 'line-through' : 'none',
+                    textDecorationColor: HF.inkFaint, opacity: status ? 0.5 : 1,
+                  }}>{m.name}</div>
+                  <div style={{ fontSize:12, color: HF.inkSub }}>{m.kcal} קק״ל</div>
+                </div>
+                {status === 'done' && (
+                  <div style={{ width:22, height:22, borderRadius:11, background: HF.success,
+                    display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    {Icon.check('#fff')}
+                  </div>
+                )}
+                {status === 'skipped' && (
+                  <div style={{ width:22, height:22, borderRadius:11, background:'#ddd',
+                    display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    {Icon.x('#888')}
+                  </div>
+                )}
+                {!status && isNext && (
+                  <div style={{
+                    fontSize:10, fontWeight:700, color: HF.accent,
+                    background: HF.accentSoft, padding:'3px 8px', borderRadius:10, letterSpacing:0.3,
+                  }}>הבא</div>
+                )}
+              </div>
+            );
+          })}
+        </HFCard>
+      </HFSection>
+    </div>
+  );
+}
+
+// ─── PLAN ──────────────────────────────────────────────────────────────────
+function HFPlan({ onOpenMeal }) {
+  const { state, meals, setMealStatus, clearMeal } = useApp();
+  const nowMin = state.now_minutes;
+
+  return (
+    <div style={{ height:'100%', overflowY:'auto', paddingBottom:'calc(env(safe-area-inset-bottom, 0px) + 80px)' }}>
+      <div style={{ padding:'8px 20px 8px', paddingTop:'max(20px, calc(env(safe-area-inset-top, 0px) + 12px))' }}>
+        <div style={{ fontSize:13, fontWeight:500, color: HF.inkSub, letterSpacing:0.3 }}>{T.today_date_short}</div>
+        <div style={{ fontSize:34, fontWeight:700, letterSpacing:-0.5, marginTop:2 }}>{T.today}</div>
+      </div>
+
+      {/* Week strip */}
+      <div style={{ padding:'4px 16px 4px', display:'flex', gap:6, overflowX:'auto' }}>
+        {[['ב׳',20,false],['ג׳',21,true],['ד׳',22,false],['ה׳',23,false],['ו׳',24,false],['ש׳',25,false],['א׳',26,false]].map(([d,n,active]) => (
+          <div key={n} style={{
+            flex:1, minWidth:42, borderRadius:16, padding:'8px 0',
+            background: active ? HF.accent : HF.card,
+            color: active ? '#fff' : HF.ink, textAlign:'center',
+            boxShadow: active ? 'none' : HF.cardShadow,
+          }}>
+            <div style={{ fontSize:11, fontWeight:500, opacity: active ? 0.85 : 0.55 }}>{d}</div>
+            <div style={{ fontSize:17, fontWeight:600, direction:'ltr' }}>{n}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Timeline */}
+      <div style={{ padding:'16px 20px 0', position:'relative' }}>
+        <div style={{ position:'absolute', left:64, top:24, bottom:24, width:2, background: HF.hairline }}/>
+
+        {meals.map((m) => {
+          const status  = state.mealStatus[m.id];
+          const mTime   = timeToMinutes(m.time);
+          const isDone  = status === 'done';
+          const isSkip  = status === 'skipped';
+          const isNext  = !status && mTime >= nowMin;
+          return (
+            <div key={m.id} style={{ display:'flex', gap:14, alignItems:'flex-start', marginBottom:14, position:'relative' }}>
+              <div style={{ width:52, paddingTop:12, textAlign:'center' }}>
+                <div style={{ fontSize:13, fontWeight:600, color: HF.ink, direction:'ltr' }}>{m.time}</div>
+                <div style={{ fontSize:10, color: HF.inkSub, letterSpacing:0.3 }}>{mealTypeName(m.type)}</div>
+              </div>
+              {/* Node */}
+              <div style={{
+                width:16, height:16, marginTop:16, borderRadius:8, flexShrink:0,
+                background: isDone ? HF.success : isSkip ? '#ccc' : isNext ? HF.accent : HF.card,
+                border:`2px solid ${isDone ? HF.success : isSkip ? '#ccc' : isNext ? HF.accent : HF.inkFaint}`,
+                boxShadow: isNext ? `0 0 0 4px ${HF.accentSoft}` : 'none',
+                position:'relative', zIndex:3,
+                display:'flex', alignItems:'center', justifyContent:'center',
+              }}>
+                {isDone && <div style={{ transform:'scale(0.7)' }}>{Icon.check('#fff')}</div>}
+              </div>
+              {/* Card */}
+              <HFCard onClick={() => onOpenMeal(m)} style={{
+                flex:1, padding:12,
+                background: isNext ? '#FFF9F4' : HF.card,
+                border: isNext ? `1.5px solid ${HF.accent}` : 'none',
+                opacity: isDone || isSkip ? 0.6 : 1,
+              }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:15, fontWeight:600, letterSpacing:-0.2,
+                      textDecoration: isDone ? 'line-through' : 'none' }}>{m.name}</div>
+                    <div style={{ fontSize:12, color: HF.inkSub, marginTop:1 }}>
+                      {m.kcal} קק״ל · {m.protein} גרם חלבון
+                    </div>
+                  </div>
+                </div>
+                {!status && (
+                  <div style={{ display:'flex', gap:8, marginTop:10 }}>
+                    <button onClick={(e) => { e.stopPropagation(); setMealStatus(m.id,'done'); }}
+                      style={{
+                        flex:1, padding:'8px 0', borderRadius:10,
+                        background: HF.accent, color:'#fff', border:'none',
+                        fontFamily: HF.font, fontSize:13, fontWeight:600, cursor:'pointer',
+                      }}>{T.i_ate_it}</button>
+                    <button onClick={(e) => { e.stopPropagation(); setMealStatus(m.id,'skipped'); }}
+                      style={{
+                        flex:1, padding:'8px 0', borderRadius:10,
+                        background:'rgba(0,0,0,0.04)', color: HF.inkSub, border:'none',
+                        fontFamily: HF.font, fontSize:13, fontWeight:500, cursor:'pointer',
+                      }}>{T.skip}</button>
+                  </div>
+                )}
+                {status && (
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:8 }}>
+                    <div style={{ fontSize:12, fontWeight:600, color: isDone ? HF.success : HF.inkSub }}>
+                      {isDone ? T.eaten : T.skipped}
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); clearMeal(m.id); }}
+                      style={{ background:'none', border:'none', fontSize:12, color: HF.accent,
+                        cursor:'pointer', fontFamily: HF.font, padding:0 }}>{T.undo}</button>
+                  </div>
+                )}
+              </HFCard>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── WATER ─────────────────────────────────────────────────────────────────
+function HFWater() {
+  const { state, goals, setWater } = useApp();
+  const pct       = Math.min(1, state.water_ml / goals.water_ml);
+  const bottleRef = React.useRef(null);
+
+  const onPointerDown = (e) => {
+    e.preventDefault();
+    const el = bottleRef.current;
+    if (!el) return;
+    el.setPointerCapture(e.pointerId);
+    const rect = el.getBoundingClientRect();
+    const update = (clientY) => {
+      const y = clientY - rect.top;
+      const p = 1 - Math.max(0, Math.min(1, y / rect.height));
+      setWater(Math.round(p * goals.water_ml / 50) * 50);
+    };
+    update(e.clientY);
+    const move = (ev) => update(ev.clientY);
+    const up   = (ev) => {
+      el.releasePointerCapture(ev.pointerId);
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+  };
+
+  const quickAdd = (ml) => setWater(state.water_ml + ml);
+
+  return (
+    <div style={{ height:'100%', overflowY:'auto', paddingBottom:'calc(env(safe-area-inset-bottom, 0px) + 80px)' }}>
+      <div style={{ padding:'8px 20px 8px', paddingTop:'max(20px, calc(env(safe-area-inset-top, 0px) + 12px))' }}>
+        <div style={{ fontSize:13, fontWeight:500, color: HF.inkSub, letterSpacing:0.3 }}>WATER</div>
+        <div style={{ fontSize:34, fontWeight:700, letterSpacing:-0.5, marginTop:2, direction:'ltr', textAlign:'right' }}>
+          {(state.water_ml/1000).toFixed(2)}<span style={{ color: HF.inkSub, fontWeight:500 }}>L</span>
+        </div>
+        <div style={{ fontSize:14, color: HF.inkSub }}>
+          מתוך {goals.water_ml/1000}L · {Math.round(pct*100)}% הושלם
+        </div>
+      </div>
+
+      {/* Big bottle */}
+      <div style={{ display:'flex', justifyContent:'center', marginTop:16, padding:'0 20px' }}>
+        <div style={{ position:'relative', width:180 }}>
+          <div style={{
+            position:'absolute', top:0, left:'50%', transform:'translateX(-50%)',
+            width:68, height:22, background: HF.waterInk,
+            borderRadius:'8px 8px 3px 3px', zIndex:2,
+          }}/>
+          <div style={{
+            position:'absolute', top:18, left:'50%', transform:'translateX(-50%)',
+            width:80, height:14, background: HF.waterInk, borderRadius:3, zIndex:2,
+          }}/>
+          <div ref={bottleRef} onPointerDown={onPointerDown}
+            style={{
+              marginTop:28, width:180, height:340,
+              borderRadius:'50px 50px 24px 24px', background:'#fff',
+              boxShadow:'inset 0 0 0 2.5px rgba(31,87,118,0.18), 0 10px 30px rgba(74,155,196,0.15)',
+              position:'relative', overflow:'hidden',
+              cursor:'ns-resize', touchAction:'none',
+            }}>
+            <div style={{
+              position:'absolute', bottom:0, left:0, right:0,
+              height:`${pct*100}%`,
+              background:`linear-gradient(180deg, ${HF.water} 0%, #3A85AD 100%)`,
+              transition:'height 0.2s ease-out',
+            }}>
+              <svg width="100%" height="14" viewBox="0 0 180 14" preserveAspectRatio="none"
+                style={{ position:'absolute', top:-7, left:0 }}>
+                <path d="M0,7 Q22,0 45,7 T90,7 T135,7 T180,7 L180,14 L0,14 Z" fill={HF.water}/>
+              </svg>
+              <div style={{ position:'absolute', left:'30%', top:'60%', width:6, height:6, borderRadius:3, background:'rgba(255,255,255,0.35)' }}/>
+              <div style={{ position:'absolute', left:'65%', top:'40%', width:4, height:4, borderRadius:2, background:'rgba(255,255,255,0.25)' }}/>
+            </div>
+            {[0.25, 0.5, 0.75].map(p => (
+              <div key={p} style={{
+                position:'absolute', left:0, right:0, top:`${(1-p)*100}%`,
+                borderTop:'1px dashed rgba(31,87,118,0.2)',
+                display:'flex', alignItems:'center',
+              }}>
+                <span style={{
+                  position:'absolute', left:8, top:-8, fontSize:10,
+                  color:'rgba(31,87,118,0.5)', fontWeight:600,
+                }}>{(p*goals.water_ml/1000).toFixed(2)}L</span>
+              </div>
+            ))}
+            {/* Drag handle */}
+            <div style={{
+              position:'absolute', left:0, right:0,
+              top:`${(1-pct)*100}%`, transform:'translateY(-50%)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              pointerEvents:'none',
+            }}>
+              <div style={{
+                width:40, height:40, borderRadius:20, background:'#fff',
+                boxShadow:'0 4px 14px rgba(0,0,0,0.15), 0 0 0 2px rgba(31,87,118,0.2)',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                color: HF.waterInk,
+              }}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 2v12M3 5l5-3 5 3M3 11l5 3 5-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+            </div>
+            {pct < 0.05 && (
+              <div style={{ position:'absolute', bottom:20, left:0, right:0, textAlign:'center',
+                fontSize:12, color: HF.inkSub, pointerEvents:'none' }}>
+                {T.drag_up_to_fill}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Quick add */}
+      <div style={{ padding:'20px 20px 0' }}>
+        <div style={{ fontSize:13, fontWeight:600, color: HF.inkSub, letterSpacing:0.3, marginBottom:8 }}>הוספה מהירה</div>
+        <div style={{ display:'flex', gap:8 }}>
+          {[{label:'כוס', ml:250, emoji:'🥛'},{label:'בקבוק', ml:500, emoji:'🧴'},{label:'ספל', ml:300, emoji:'☕'}].map(q => (
+            <button key={q.label} onClick={() => quickAdd(q.ml)}
+              style={{
+                flex:1, background: HF.card, border:'none',
+                borderRadius:14, padding:'12px 0', cursor:'pointer',
+                boxShadow: HF.cardShadow, fontFamily: HF.font,
+                display:'flex', flexDirection:'column', alignItems:'center', gap:2,
+              }}>
+              <div style={{ fontSize:22 }}>{q.emoji}</div>
+              <div style={{ fontSize:13, fontWeight:600 }}>{q.label}</div>
+              <div style={{ fontSize:11, color: HF.inkSub }}>+{q.ml}ml</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 7-day history */}
+      <HFSection label="7 ימים אחרונים">
+        <HFCard padding={16}>
+          <div style={{ display:'flex', gap:6, alignItems:'flex-end', height:90 }}>
+            {[{d:'ד',ml:2300},{d:'ה',ml:2600},{d:'ו',ml:1800},{d:'ש',ml:2500},{d:'א',ml:2000},{d:'ב',ml:2400},{d:'ג',ml:state.water_ml,active:true}].map((b,i) => {
+              const h = Math.min(1, b.ml/goals.water_ml)*70;
+              return (
+                <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
+                  <div style={{
+                    width:'100%', maxWidth:26, height:h,
+                    background: b.active ? HF.accent : HF.water,
+                    borderRadius:'4px 4px 2px 2px',
+                    opacity: b.ml >= goals.water_ml ? 1 : 0.65,
+                    transition:'height 0.4s',
+                  }}/>
+                  <div style={{ fontSize:11, color: HF.inkSub, fontWeight:500 }}>{b.d}</div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ display:'flex', justifyContent:'space-between', marginTop:10, fontSize:12, color: HF.inkSub }}>
+            <span>ממוצע שבועי: {((2300+2600+1800+2500+2000+2400+state.water_ml)/7/1000).toFixed(1)}L</span>
+            <span>יעד: {goals.water_ml/1000}L</span>
+          </div>
+        </HFCard>
+      </HFSection>
+    </div>
+  );
+}
+
+// ─── LIBRARY ───────────────────────────────────────────────────────────────
+const MEAL_TYPES = ['Breakfast','Snack','Lunch','Dinner'];
+const TIME_SLOTS = {
+  Breakfast: ['07:00','07:30','08:00','08:30','09:00'],
+  Snack:     ['10:00','10:30','11:00','15:30','16:00','16:30'],
+  Lunch:     ['12:00','12:30','13:00','13:30'],
+  Dinner:    ['18:30','19:00','19:30','20:00','20:30'],
+};
+const DOW_LABELS = ['M','T','W','T','F','S','S'];
+
+function HFLibrary({ onEdit, onSchedule, onCreate }) {
+  const { library, schedule } = useApp();
+  const [search, setSearch] = React.useState('');
+  const [filter, setFilter] = React.useState('All');
+
+  const countScheduled = (libId) =>
+    schedule.recurring.filter(r => r.libId === libId).length +
+    schedule.oneoff.filter(o => o.libId === libId).length;
+
+  const types    = ['All', ...MEAL_TYPES];
+  const filtered = library.filter(l => {
+    if (filter !== 'All' && l.type !== filter) return false;
+    if (search && !l.name.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
+  return (
+    <div style={{ height:'100%', overflowY:'auto', paddingBottom:'calc(env(safe-area-inset-bottom, 0px) + 80px)' }}>
+      <div style={{ padding:'8px 20px 8px', paddingTop:'max(20px, calc(env(safe-area-inset-top, 0px) + 12px))', display:'flex', justifyContent:'space-between', alignItems:'flex-end' }}>
+        <div>
+          <div style={{ fontSize:13, fontWeight:500, color: HF.inkSub, letterSpacing:0.3 }}>הארוחות שלי</div>
+          <div style={{ fontSize:34, fontWeight:700, letterSpacing:-0.5, marginTop:2 }}>ספרייה</div>
+        </div>
+        <button onClick={onCreate} style={{
+          width:40, height:40, borderRadius:20, border:'none',
+          background: HF.accent, color:'#fff', cursor:'pointer',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          boxShadow:`0 4px 12px ${HF.accent}40`,
+        }}>{Icon.plus('#fff')}</button>
+      </div>
+
+      {/* Search */}
+      <div style={{ padding:'8px 16px 0' }}>
+        <div style={{
+          background:'rgba(118,118,128,0.12)', borderRadius:10,
+          padding:'8px 12px', display:'flex', alignItems:'center', gap:8,
+        }}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="7" cy="7" r="5" stroke={HF.inkSub} strokeWidth="1.6"/>
+            <path d="M11 11l3 3" stroke={HF.inkSub} strokeWidth="1.6" strokeLinecap="round"/>
+          </svg>
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="חיפוש ארוחות" style={{
+              border:'none', background:'transparent', outline:'none',
+              flex:1, fontFamily: HF.font, fontSize:15, color: HF.ink, direction:'rtl',
+            }}/>
+        </div>
+      </div>
+
+      {/* Filter chips */}
+      <div style={{ display:'flex', gap:6, overflowX:'auto', padding:'12px 16px 4px' }}>
+        {types.map(t => (
+          <button key={t} onClick={() => setFilter(t)} style={{
+            padding:'6px 14px', borderRadius:16, border:'none',
+            background: filter===t ? HF.ink : 'rgba(118,118,128,0.12)',
+            color: filter===t ? '#fff' : HF.ink,
+            fontFamily: HF.font, fontSize:13, fontWeight:500, cursor:'pointer', flexShrink:0,
+          }}>{t==='All' ? 'הכל' : mealTypeName(t)}</button>
+        ))}
+      </div>
+
+      {/* Grid */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, padding:'12px 16px 0' }}>
+        {filtered.map(m => {
+          const st       = mealStyle(m.type);
+          const scheduled = countScheduled(m.id);
+          return (
+            <HFCard key={m.id} onClick={() => onEdit(m)} padding={0} style={{ overflow:'hidden' }}>
+              <div style={{ padding:'10px 12px 12px' }}>
+                {scheduled > 0 && (
+                  <div style={{
+                    float:'left', background: HF.cardAlt,
+                    padding:'2px 8px', borderRadius:10, fontSize:10, fontWeight:600, color: HF.ink,
+                    marginBottom:4,
+                  }}>×{scheduled}</div>
+                )}
+                <div style={{ fontSize:11, color: HF.inkSub, fontWeight:500, letterSpacing:0.2 }}>{mealTypeName(m.type).toUpperCase()}</div>
+                <div style={{ fontSize:14, fontWeight:600, lineHeight:1.25, marginTop:1 }}>{m.name}</div>
+                <div style={{ fontSize:11, color: HF.inkSub, marginTop:4 }}>{m.ingredients.length} מרכיבים</div>
+                <button onClick={(e) => { e.stopPropagation(); onSchedule(m); }}
+                  style={{
+                    marginTop:8, width:'100%', padding:'6px 0', borderRadius:8,
+                    border:`1px solid ${HF.accent}`, background:'transparent',
+                    color: HF.accent, fontFamily: HF.font, fontSize:12, fontWeight:600, cursor:'pointer',
+                  }}>+ הוסיפי לתפריט</button>
+              </div>
+            </HFCard>
+          );
+        })}
+      </div>
+      {filtered.length === 0 && (
+        <div style={{ textAlign:'center', padding:40, color: HF.inkSub, fontSize:14 }}>
+          אין ארוחות מתאימות. <span onClick={onCreate} style={{ color: HF.accent, cursor:'pointer' }}>צרי אחת ›</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── MEAL FORM A (single page) ─────────────────────────────────────────────
+function HFMealFormA({ meal, onClose, onSave, onDelete }) {
+  const isNew = !meal?.id;
+  const [name, setName]               = React.useState(meal?.name || '');
+  const [type, setType]               = React.useState(meal?.type || 'Lunch');
+  const [ingredients, setIngredients] = React.useState(meal?.ingredients || ['']);
+
+  const setIng = (i, v) => setIngredients(ings => ings.map((x,idx) => idx===i ? v : x));
+  const addIng = ()     => setIngredients(ings => [...ings, '']);
+  const rmIng  = (i)    => setIngredients(ings => ings.filter((_,idx) => idx!==i));
+  const canSave = name.trim() && ingredients.filter(i => i.trim()).length > 0;
+
+  const save = () => onSave({
+    ...(meal||{}), id: meal?.id,
+    name: name.trim(), type,
+    ingredients: ingredients.map(i=>i.trim()).filter(Boolean),
+  });
+
+  const st = mealStyle(type);
+
+  return (
+    <div style={{ position:'absolute', inset:0, background: HF.bg, zIndex:40, display:'flex', flexDirection:'column' }}>
+      <div style={{ padding:'12px 16px 12px', paddingTop:'max(20px, calc(env(safe-area-inset-top, 0px) + 12px))',
+        display:'flex', alignItems:'center', justifyContent:'space-between',
+        background: HF.bg, position:'relative', zIndex:2 }}>
+        <button onClick={onClose} style={{ border:'none', background:'none', fontSize:17, color: HF.accent,
+          fontFamily: HF.font, cursor:'pointer', fontWeight:400, padding:0 }}>ביטול</button>
+        <div style={{ fontSize:17, fontWeight:600 }}>{isNew ? 'ארוחה חדשה' : 'עריכת ארוחה'}</div>
+        <button onClick={save} disabled={!canSave} style={{
+          border:'none', background:'none', fontSize:17,
+          color: canSave ? HF.accent : HF.inkFaint,
+          fontFamily: HF.font, cursor: canSave ? 'pointer' : 'not-allowed', fontWeight:600, padding:0,
+        }}>שמירה</button>
+      </div>
+      <div style={{ flex:1, overflowY:'auto', padding:'8px 16px 100px' }}>
+        <div style={{ fontSize:13, fontWeight:600, color: HF.inkSub, letterSpacing:0.3, marginBottom:6 }}>שם</div>
+        <HFCard padding={0}>
+          <input value={name} onChange={e => setName(e.target.value)}
+            placeholder="לדוגמה: קערת עוף ואורז"
+            style={{ width:'100%', border:'none', background:'transparent', outline:'none',
+              padding:'14px 16px', fontSize:17, fontFamily: HF.font, color: HF.ink, direction:'rtl' }}/>
+        </HFCard>
+
+        <div style={{ fontSize:13, fontWeight:600, color: HF.inkSub, letterSpacing:0.3, marginTop:20, marginBottom:6 }}>סוג ארוחה</div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+          {MEAL_TYPES.map(t => {
+            const s = mealStyle(t);
+            return (
+              <button key={t} onClick={() => setType(t)} style={{
+                padding:'14px 12px', borderRadius:14, border:'none',
+                background: type===t ? s.bg : HF.card,
+                boxShadow: type===t ? `inset 0 0 0 2px ${HF.ink}` : HF.cardShadow,
+                cursor:'pointer', fontFamily: HF.font,
+                display:'flex', alignItems:'center', justifyContent:'center',
+              }}>
+                <span style={{ fontSize:15, fontWeight:600 }}>{mealTypeName(t)}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ fontSize:13, fontWeight:600, color: HF.inkSub, letterSpacing:0.3, marginTop:20, marginBottom:6 }}>מרכיבים</div>
+        <HFCard padding={0}>
+          {ingredients.map((ing, i) => (
+            <div key={i} style={{
+              display:'flex', alignItems:'center',
+              borderBottom: i < ingredients.length-1 ? `0.5px solid ${HF.hairline}` : 'none',
+            }}>
+              <div style={{
+                width:18, height:18, borderRadius:9, background: HF.accent,
+                marginRight:16, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center',
+                fontSize:11, color:'#fff', fontWeight:700,
+              }}>{i+1}</div>
+              <input value={ing} onChange={e => setIng(i, e.target.value)}
+                placeholder={i===0 ? '150 גרם חזה עוף' : 'הוסיפי מרכיב'}
+                style={{
+                  flex:1, border:'none', background:'transparent', outline:'none',
+                  padding:'14px 12px', fontSize:16, fontFamily: HF.font, color: HF.ink, direction:'rtl',
+                }}/>
+              {ingredients.length > 1 && (
+                <button onClick={() => rmIng(i)} style={{
+                  border:'none', background:'none', padding:'14px 16px', cursor:'pointer', color: HF.inkFaint,
+                }}>{Icon.x(HF.inkFaint)}</button>
+              )}
+            </div>
+          ))}
+          <button onClick={addIng} style={{
+            width:'100%', border:'none', background:'none', padding:'14px 16px',
+            textAlign:'right', cursor:'pointer', fontFamily: HF.font, fontSize:16,
+            color: HF.accent, fontWeight:500,
+            display:'flex', alignItems:'center', gap:10, justifyContent:'flex-end',
+            borderTop:`0.5px solid ${HF.hairline}`,
+          }}>
+            הוסיפי מרכיב
+            <div style={{ width:18, height:18, borderRadius:9, border:`1.5px solid ${HF.accent}`,
+              display:'flex', alignItems:'center', justifyContent:'center' }}>
+              {Icon.plus(HF.accent)}
+            </div>
+          </button>
+        </HFCard>
+
+        {!isNew && onDelete && (
+          <button onClick={() => { if (confirm('למחוק את הארוחה?')) onDelete(meal.id); }} style={{
+            marginTop:24, width:'100%', padding:'14px 0', borderRadius:14,
+            border:'none', background: HF.card, color:'#D9534F',
+            fontFamily: HF.font, fontSize:16, fontWeight:500, cursor:'pointer', boxShadow: HF.cardShadow,
+          }}>מחיקת ארוחה</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── MEAL FORM B (stepped wizard) ─────────────────────────────────────────
+function HFMealFormB({ meal, onClose, onSave, onDelete }) {
+  const isNew = !meal?.id;
+  const [step, setStep]               = React.useState(0);
+  const [name, setName]               = React.useState(meal?.name || '');
+  const [type, setType]               = React.useState(meal?.type || '');
+  const [ingredients, setIngredients] = React.useState(meal?.ingredients || []);
+  const [newIng, setNewIng]           = React.useState('');
+
+  const steps   = ['שם','סוג','מרכיבים'];
+  const canNext = [name.trim(), type, ingredients.length > 0][step];
+
+  const save = () => onSave({
+    ...(meal||{}), id: meal?.id, name: name.trim(), type,
+    ingredients: ingredients.filter(Boolean),
+  });
+
+  const addIng = () => {
+    if (newIng.trim()) { setIngredients([...ingredients, newIng.trim()]); setNewIng(''); }
+  };
+
+  return (
+    <div style={{ position:'absolute', inset:0, background: HF.bg, zIndex:40, display:'flex', flexDirection:'column' }}>
+      <div style={{ padding:'8px 16px 8px', paddingTop:'max(20px, calc(env(safe-area-inset-top, 0px) + 12px))' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <button onClick={step===0 ? onClose : () => setStep(step-1)} style={{
+            border:'none', background:'none', fontSize:15, color: HF.accent,
+            fontFamily: HF.font, cursor:'pointer', padding:0,
+          }}>{step===0 ? 'ביטול' : '‹ חזרה'}</button>
+          <div style={{ fontSize:13, color: HF.inkSub }}>{step+1} מתוך {steps.length}</div>
+          <div style={{ width:60 }}/>
+        </div>
+        <div style={{ display:'flex', gap:4, marginTop:16 }}>
+          {steps.map((_,i) => (
+            <div key={i} style={{
+              flex:1, height:3, borderRadius:2,
+              background: i<=step ? HF.accent : 'rgba(0,0,0,0.08)',
+              transition:'background 0.3s',
+            }}/>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ flex:1, overflowY:'auto', padding:'24px 20px 20px' }}>
+        {step===0 && (
+          <>
+            <div style={{ fontSize:28, fontWeight:700, letterSpacing:-0.5, lineHeight:1.15 }}>איך קוראים לארוחה?</div>
+            <div style={{ fontSize:15, color: HF.inkSub, marginTop:6 }}>שם קצר וברור.</div>
+            <input value={name} onChange={e => setName(e.target.value)}
+              autoFocus placeholder="קערת עוף ואורז"
+              style={{
+                width:'100%', border:'none', outline:'none', background:'transparent', marginTop:24,
+                fontSize:26, fontWeight:600, fontFamily: HF.font, color: HF.ink,
+                borderBottom:`2px solid ${HF.accent}`, padding:'8px 0', direction:'rtl',
+              }}/>
+          </>
+        )}
+        {step===1 && (
+          <>
+            <div style={{ fontSize:28, fontWeight:700, letterSpacing:-0.5, lineHeight:1.15 }}>מתי אוכלים אותה בדרך כלל?</div>
+            <div style={{ fontSize:15, color: HF.inkSub, marginTop:6 }}>בחרי סוג ארוחה.</div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginTop:24 }}>
+              {MEAL_TYPES.map(t => {
+                const s = mealStyle(t);
+                return (
+                  <button key={t} onClick={() => setType(t)} style={{
+                    padding:20, borderRadius:18, border:'none',
+                    background: type===t ? s.bg : HF.card,
+                    boxShadow: type===t ? `inset 0 0 0 2.5px ${HF.ink}` : HF.cardShadow,
+                    cursor:'pointer', fontFamily: HF.font,
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                  }}>
+                    <span style={{ fontSize:15, fontWeight:600 }}>{mealTypeName(t)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+        {step===2 && (
+          <>
+            <div style={{ fontSize:28, fontWeight:700, letterSpacing:-0.5, lineHeight:1.15 }}>מה יש בה?</div>
+            <div style={{ fontSize:15, color: HF.inkSub, marginTop:6 }}>הוסיפי מרכיבים אחד-אחד.</div>
+            <div style={{ display:'flex', gap:8, marginTop:20 }}>
+              <input value={newIng} onChange={e => setNewIng(e.target.value)}
+                onKeyDown={e => e.key==='Enter' && addIng()}
+                placeholder="לדוגמה: 150 גרם חזה עוף"
+                autoFocus
+                style={{
+                  flex:1, border:'none', outline:'none', background: HF.card,
+                  borderRadius:12, padding:'12px 14px', fontSize:16,
+                  fontFamily: HF.font, color: HF.ink, boxShadow: HF.cardShadow, direction:'rtl',
+                }}/>
+              <button onClick={addIng} style={{
+                width:44, height:44, borderRadius:12, border:'none',
+                background: HF.accent, color:'#fff', cursor:'pointer',
+                display:'flex', alignItems:'center', justifyContent:'center',
+              }}>{Icon.plus('#fff')}</button>
+            </div>
+            <div style={{ marginTop:16 }}>
+              {ingredients.map((ing, i) => (
+                <div key={i} style={{
+                  display:'flex', alignItems:'center', gap:10,
+                  background: HF.card, padding:'12px 14px', borderRadius:10,
+                  marginBottom:6, boxShadow: HF.cardShadow,
+                }}>
+                  <div style={{
+                    width:22, height:22, borderRadius:11, background: HF.accent,
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    fontSize:12, fontWeight:700, color:'#fff',
+                  }}>{i+1}</div>
+                  <div style={{ flex:1, fontSize:15 }}>{ing}</div>
+                  <button onClick={() => setIngredients(ingredients.filter((_,x)=>x!==i))}
+                    style={{ border:'none', background:'none', cursor:'pointer' }}>{Icon.x(HF.inkFaint)}</button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div style={{
+        padding:'12px 20px 34px', background:'rgba(242,242,247,0.92)',
+        backdropFilter:'blur(20px)', borderTop:`0.5px solid ${HF.hairline}`,
+      }}>
+        <button onClick={step < steps.length-1 ? () => setStep(step+1) : save}
+          disabled={!canNext} style={{
+            width:'100%', padding:'15px 0', borderRadius:14, border:'none',
+            background: canNext ? HF.accent : 'rgba(0,0,0,0.08)',
+            color: canNext ? '#fff' : HF.inkFaint,
+            fontFamily: HF.font, fontSize:16, fontWeight:600,
+            cursor: canNext ? 'pointer' : 'not-allowed',
+          }}>
+          {step < steps.length-1 ? 'המשך' : (isNew ? 'יצירת ארוחה' : 'שמירת שינויים')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── SCHEDULE SHEET ────────────────────────────────────────────────────────
+function HFScheduleSheet({ meal, onClose }) {
+  const { scheduleOneoff, scheduleRecurring } = useApp();
+  const [mode, setMode] = React.useState('oneoff');
+  const [date, setDate] = React.useState(TODAY_DATE);
+  const [dow,  setDow]  = React.useState([1]);
+  const suggestedTimes  = TIME_SLOTS[meal?.type] || TIME_SLOTS.Lunch;
+  const [time, setTime] = React.useState(suggestedTimes[Math.floor(suggestedTimes.length/2)]);
+
+  const toggleDow = (d) => setDow(v => v.includes(d) ? v.filter(x=>x!==d) : [...v,d].sort());
+  const canSave   = mode==='oneoff' ? date && time : dow.length>0 && time;
+  const st        = mealStyle(meal?.type || 'Lunch');
+
+  const save = () => {
+    if (mode==='oneoff') scheduleOneoff(meal.id, date, time);
+    else scheduleRecurring(meal.id, dow, time);
+    onClose();
+  };
+
+  return (
+    <div onClick={onClose} style={{
+      position:'absolute', inset:0, zIndex:50, background:'rgba(0,0,0,0.4)',
+      animation:'fadeIn 0.2s ease-out',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        position:'absolute', left:0, right:0, bottom:0,
+        background: HF.bg, borderRadius:'20px 20px 0 0',
+        padding:'8px 0 34px', animation:'slideUp 0.3s cubic-bezier(0.2,0.8,0.2,1)',
+        maxHeight:'85%', overflowY:'auto',
+      }}>
+        <div style={{ width:36, height:5, borderRadius:3, background:'rgba(0,0,0,0.2)', margin:'6px auto 12px' }}/>
+        <div style={{ padding:'0 20px' }}>
+          <div style={{ marginBottom:18 }}>
+            <div style={{ fontSize:11, color: HF.inkSub, fontWeight:500, letterSpacing:0.3 }}>הוספה לתפריט</div>
+            <div style={{ fontSize:20, fontWeight:700, letterSpacing:-0.3 }}>{meal?.name}</div>
+          </div>
+
+          <div style={{ display:'flex', background:'rgba(118,118,128,0.12)', borderRadius:10, padding:3, marginBottom:16 }}>
+            {[['oneoff','פעם אחת'],['recurring','כל שבוע']].map(([k,l]) => (
+              <button key={k} onClick={() => setMode(k)} style={{
+                flex:1, padding:'8px 0', borderRadius:8, border:'none',
+                background: mode===k ? '#fff' : 'transparent',
+                boxShadow: mode===k ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                fontFamily: HF.font, fontSize:14, fontWeight:600, color: HF.ink, cursor:'pointer',
+              }}>{l}</button>
+            ))}
+          </div>
+
+          {mode==='oneoff' && (
+            <>
+              <div style={{ fontSize:12, fontWeight:600, color: HF.inkSub, marginBottom:6, letterSpacing:0.3 }}>תאריך</div>
+              <HFCard padding={0}>
+                <input type="date" value={date} onChange={e => setDate(e.target.value)}
+                  style={{ width:'100%', border:'none', outline:'none', background:'transparent',
+                    padding:'12px 14px', fontSize:16, fontFamily: HF.font }}/>
+              </HFCard>
+            </>
+          )}
+
+          {mode==='recurring' && (
+            <>
+              <div style={{ fontSize:12, fontWeight:600, color: HF.inkSub, marginBottom:6, letterSpacing:0.3 }}>ימים בשבוע</div>
+              <div style={{ display:'flex', gap:6, justifyContent:'space-between' }}>
+                {DOW_LABELS.map((d,i) => {
+                  const active = dow.includes(i);
+                  return (
+                    <button key={i} onClick={() => toggleDow(i)} style={{
+                      flex:1, height:44, borderRadius:12, border:'none',
+                      background: active ? HF.accent : HF.card,
+                      boxShadow: active ? 'none' : HF.cardShadow,
+                      color: active ? '#fff' : HF.ink,
+                      fontFamily: HF.font, fontSize:14, fontWeight:600, cursor:'pointer',
+                    }}>{d}</button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          <div style={{ fontSize:12, fontWeight:600, color: HF.inkSub, marginTop:16, marginBottom:6, letterSpacing:0.3 }}>שעה</div>
+          <div style={{ display:'flex', gap:6, overflowX:'auto', marginBottom:6 }}>
+            {suggestedTimes.map(t => (
+              <button key={t} onClick={() => setTime(t)} style={{
+                padding:'8px 14px', borderRadius:12, border:'none',
+                background: time===t ? HF.ink : HF.card,
+                boxShadow: time===t ? 'none' : HF.cardShadow,
+                color: time===t ? '#fff' : HF.ink,
+                fontFamily: HF.font, fontSize:14, fontWeight:600, cursor:'pointer', flexShrink:0,
+              }}>{t}</button>
+            ))}
+          </div>
+          <HFCard padding={0} style={{ marginTop:6 }}>
+            <input type="time" value={time} onChange={e => setTime(e.target.value)}
+              style={{ width:'100%', border:'none', outline:'none', background:'transparent',
+                padding:'10px 14px', fontSize:15, fontFamily: HF.font, color: HF.inkSub }}/>
+          </HFCard>
+
+          <button onClick={save} disabled={!canSave} style={{
+            marginTop:20, width:'100%', padding:'15px 0', borderRadius:14,
+            border:'none', background: canSave ? HF.accent : 'rgba(0,0,0,0.08)',
+            color: canSave ? '#fff' : HF.inkFaint,
+            fontFamily: HF.font, fontSize:16, fontWeight:600,
+            cursor: canSave ? 'pointer' : 'not-allowed',
+          }}>הוסיפי לתפריט</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── MEAL DETAIL ───────────────────────────────────────────────────────────
+function HFMealDetail({ meal, onClose, partnerName }) {
+  const { state, setMealStatus, clearMeal } = useApp();
+  const status = state.mealStatus[meal.id];
+  const st     = mealStyle(meal.type);
+  return (
+    <div style={{
+      position:'absolute', inset:0, background: HF.bg, zIndex:40,
+      overflow:'hidden', display:'flex', flexDirection:'column',
+    }}>
+      <div style={{
+        paddingTop:'max(20px, calc(env(safe-area-inset-top, 0px) + 12px))',
+        padding:'max(20px, calc(env(safe-area-inset-top, 0px) + 12px)) 16px 16px',
+        background: HF.bg, position:'relative', flexShrink:0,
+        borderBottom:`0.5px solid ${HF.hairline}`,
+      }}>
+        <button onClick={onClose} style={{
+          position:'absolute', top:'max(20px, calc(env(safe-area-inset-top, 0px) + 12px))', left:16, zIndex:2,
+          width:36, height:36, borderRadius:18, border:'none',
+          background: HF.card, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer',
+        }}>{Icon.x(HF.ink)}</button>
+      </div>
+      <div style={{ flex:1, overflowY:'auto', padding:'20px 20px 120px' }}>
+        <div style={{ fontSize:13, fontWeight:600, color: HF.accent, letterSpacing:0.3 }}>
+          {mealTypeName(meal.type)} · {meal.time}
+        </div>
+        <div style={{ fontSize:28, fontWeight:700, letterSpacing:-0.5, marginTop:2, lineHeight:1.15 }}>{meal.name}</div>
+        <div style={{ display:'flex', gap:12, marginTop:12 }}>
+          {[[meal.kcal,'קק״ל'],[`${meal.protein}g`,'חלבון'],[`${meal.mins||15}min`,'להכנה']].map(([v,l]) => (
+            <div key={l} style={{
+              flex:1, background: HF.card, borderRadius:12, padding:'10px 0',
+              textAlign:'center', boxShadow: HF.cardShadow,
+            }}>
+              <div style={{ fontSize:17, fontWeight:700 }}>{v}</div>
+              <div style={{ fontSize:11, color: HF.inkSub }}>{l}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize:13, fontWeight:600, color: HF.inkSub, letterSpacing:0.3, marginTop:24, marginBottom:8 }}>מה יש בזה</div>
+        <HFCard padding={0}>
+          {meal.ingredients.map((ing, i) => (
+            <div key={i} style={{
+              padding:'12px 16px', fontSize:15,
+              borderBottom: i < meal.ingredients.length-1 ? `0.5px solid ${HF.hairline}` : 'none',
+            }}>{ing}</div>
+          ))}
+        </HFCard>
+        {meal.note && (
+          <>
+            <div style={{ fontSize:13, fontWeight:600, color: HF.inkSub, letterSpacing:0.3, marginTop:24, marginBottom:8 }}>
+              פתק מ{partnerName}
+            </div>
+            <HFCard style={{ background:'#FFFBED', padding:14 }}>
+              <div style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
+                <div style={{ marginTop:1 }}>{Icon.heart(HF.accent, HF.accent)}</div>
+                <div style={{ fontSize:14, lineHeight:1.45, color:'#5A4A2A' }}>{meal.note}</div>
+              </div>
+            </HFCard>
+          </>
+        )}
+      </div>
+      <div style={{
+        position:'absolute', bottom:0, left:0, right:0, padding:'16px 20px 34px',
+        background:'rgba(242,242,247,0.92)', backdropFilter:'blur(20px)',
+        borderTop:`0.5px solid ${HF.hairline}`,
+      }}>
+        {!status ? (
+          <div style={{ display:'flex', gap:10 }}>
+            <button onClick={() => { setMealStatus(meal.id,'done'); onClose(); }} style={{
+              flex:2, padding:'15px 0', borderRadius:14, border:'none',
+              background: HF.accent, color:'#fff',
+              fontFamily: HF.font, fontSize:16, fontWeight:600, cursor:'pointer',
+            }}>✓ אכלתי</button>
+            <button onClick={() => { setMealStatus(meal.id,'skipped'); onClose(); }} style={{
+              flex:1, padding:'15px 0', borderRadius:14, border:'none',
+              background:'rgba(0,0,0,0.06)', color: HF.ink,
+              fontFamily: HF.font, fontSize:16, fontWeight:500, cursor:'pointer',
+            }}>דילוג</button>
+          </div>
+        ) : (
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <div style={{ fontSize:14, fontWeight:600, color: status==='done' ? HF.success : HF.inkSub }}>
+              {status==='done' ? '✓ סומן כנאכל' : '× דולג'}
+            </div>
+            <button onClick={() => clearMeal(meal.id)} style={{
+              background:'none', border:'none', fontSize:15, color: HF.accent,
+              cursor:'pointer', fontFamily: HF.font, fontWeight:600,
+            }}>בטל</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── ME SCREEN ─────────────────────────────────────────────────────────────
+// ─── LOCKSCREEN ────────────────────────────────────────────────────────────
+function Lockscreen({ onClose, appName, partnerName }) {
+  return (
+    <div onClick={onClose} style={{
+      position:'absolute', inset:0, zIndex:100,
+      background:'linear-gradient(165deg, #3a3848 0%, #1a1a26 100%)',
+      padding:20, cursor:'pointer',
+    }}>
+      <div style={{ textAlign:'center', paddingTop:'calc(env(safe-area-inset-top, 0px) + 70px)', color:'#fff' }}>
+        <div style={{ fontSize:16, fontWeight:500, opacity:0.7, letterSpacing:0.5 }}>יום שלישי, 21 באפריל</div>
+        <div style={{ fontSize:88, fontWeight:200, lineHeight:1, marginTop:4, letterSpacing:-2 }}>12:28</div>
+      </div>
+      <div style={{ marginTop:60 }}>
+        <div style={{
+          background:'rgba(255,255,255,0.16)', backdropFilter:'blur(20px)',
+          WebkitBackdropFilter:'blur(20px)', borderRadius:20, padding:14,
+          border:'0.5px solid rgba(255,255,255,0.15)',
+          animation:'slideDown 0.5s ease-out',
+        }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{
+              width:22, height:22, borderRadius:6,
+              background:`linear-gradient(135deg, ${HF.accent}, #E8A38A)`,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:12, color:'#fff',
+            }}>♥</div>
+            <div style={{ fontSize:13, color:'rgba(255,255,255,0.8)', fontWeight:500, flex:1, letterSpacing:0.3 }}>
+              התפריט של {appName.toUpperCase()}
+            </div>
+            <div style={{ fontSize:13, color:'rgba(255,255,255,0.6)' }}>עכשיו</div>
+          </div>
+          <div style={{ fontSize:16, fontWeight:600, color:'#fff', marginTop:8 }}>ארוחת צהריים בעוד 2 דקות 🍚</div>
+          <div style={{ fontSize:14, color:'rgba(255,255,255,0.85)', marginTop:2 }}>קערת עוף ואורז · 520 קק״ל</div>
+          <div style={{ fontSize:13, color:'rgba(255,255,255,0.6)', marginTop:4 }}>
+            מ{partnerName}: "העוף בקופסה הכחולה 💛"
+          </div>
+        </div>
+      </div>
+      <div style={{ position:'absolute', bottom:50, left:0, right:0, textAlign:'center',
+        fontSize:13, color:'rgba(255,255,255,0.5)' }}>הקישי בכל מקום לסגירה</div>
+    </div>
+  );
+}
+
+// ─── MEAL EDITOR ROUTER ───────────────────────────────────────────────────
+function MealEditor({ meal, variant, onClose }) {
+  const { saveLibraryMeal, deleteLibraryMeal } = useApp();
+  const Form = variant === 'B' ? HFMealFormB : HFMealFormA;
+  return (
+    <Form
+      meal={meal.id ? meal : null}
+      onClose={onClose}
+      onSave={(m)  => { saveLibraryMeal(m); onClose(); }}
+      onDelete={(id) => { deleteLibraryMeal(id); onClose(); }}
+    />
+  );
+}
+
+// ─── ROOT ──────────────────────────────────────────────────────────────────
+const TWEAKS_DEFAULT = {
+  appName: 'שירה', partnerName: 'שי',
+  accentColor: '#D97757',
+  waterGoal: 2500, calorieGoal: 1800, proteinGoal: 100,
+  editorVariant: 'A',
+};
+
+// Inner shell — lives inside AppProvider so it can call useApp()
+function AppShell({ tweaks, setTweaks }) {
+  const { meals } = useApp();
+  const [showTweaks,   setShowTweaks]   = React.useState(false);
+  const [tab,          setTab]          = React.useState(() => localStorage.getItem('shira_tab') || 'home');
+  const [openMeal,     setOpenMeal]     = React.useState(null);
+  const [lockscreen,   setLockscreen]   = React.useState(false);
+  const [editMeal,     setEditMeal]     = React.useState(null);
+  const [scheduleMeal, setScheduleMeal] = React.useState(null);
+
+  React.useEffect(() => { localStorage.setItem('shira_tab', tab); }, [tab]);
+
+  // Auto-reschedule notifications when meals change
+  React.useEffect(() => {
+    if (localStorage.getItem(NOTIF_KEY) === '1' && getNotifPermission() === 'granted') {
+      scheduleMealNotifications(meals);
+    }
+  }, [meals]);
+
+  const setKey = (k, v) => setTweaks(t => ({ ...t, [k]: v }));
+
+  const inp = {
+    width:'100%', padding:'10px 12px', border:`0.5px solid #e0e0e0`,
+    borderRadius:10, fontSize:16, fontFamily: HF.font,
+  };
+
+  return (
+    <>
+      {/* Full-screen app shell */}
+      <div style={{ position:'fixed', inset:0, overflow:'hidden', background:HF.bg }}>
+        {/* Screen */}
+        <div style={{ position:'absolute', inset:0, bottom:0 }}>
+          {tab==='home'    && <HFHome    onNavigate={setTab} onOpenMeal={setOpenMeal} appName={tweaks.appName} partnerName={tweaks.partnerName}/>}
+          {tab==='plan'    && <HFPlan    onOpenMeal={setOpenMeal}/>}
+          {tab==='library' && <HFLibrary onEdit={(m) => setEditMeal(m)} onSchedule={(m) => setScheduleMeal(m)} onCreate={() => setEditMeal({})}/>}
+          {tab==='water'   && <HFWater/>}
+          {tab==='me'      && <HFMe      onShowNotification={() => setLockscreen(true)} appName={tweaks.appName} meals={meals}/>}
+
+          {openMeal     && <HFMealDetail    meal={openMeal}     onClose={() => setOpenMeal(null)}     partnerName={tweaks.partnerName}/>}
+          {lockscreen   && <Lockscreen      onClose={() => setLockscreen(false)} appName={tweaks.appName} partnerName={tweaks.partnerName}/>}
+          {editMeal     && <MealEditor      meal={editMeal}     variant={tweaks.editorVariant} onClose={() => setEditMeal(null)}/>}
+          {scheduleMeal && <HFScheduleSheet meal={scheduleMeal} onClose={() => setScheduleMeal(null)}/>}
+        </div>
+
+        <HFTabBar active={tab} onChange={(t) => { setTab(t); setOpenMeal(null); }}/>
+      </div>
+
+      {/* Settings FAB */}
+      {!openMeal && !lockscreen && !editMeal && !scheduleMeal && (
+        <button onClick={() => setShowTweaks(v => !v)} style={{
+          position:'fixed', zIndex:10001,
+          top:'calc(env(safe-area-inset-top, 0px) + 10px)', left:14,
+          width:36, height:36, borderRadius:18, border:'none',
+          background:'rgba(0,0,0,0.07)', backdropFilter:'blur(10px)',
+          display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer',
+        }}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <circle cx="9" cy="9" r="2.5" stroke={HF.inkSub} strokeWidth="1.5"/>
+            <path d="M9 1v2M9 15v2M1 9h2M15 9h2M3.22 3.22l1.42 1.42M13.36 13.36l1.42 1.42M3.22 14.78l1.42-1.42M13.36 4.64l1.42-1.42" stroke={HF.inkSub} strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </button>
+      )}
+
+      {/* Settings bottom sheet */}
+      {showTweaks && (
+        <div onClick={() => setShowTweaks(false)} style={{
+          position:'fixed', inset:0, zIndex:10000,
+          background:'rgba(0,0,0,0.4)', animation:'fadeIn 0.2s ease-out',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            position:'absolute', left:0, right:0, bottom:0,
+            background:HF.bg, borderRadius:'20px 20px 0 0',
+            padding:'8px 20px',
+            paddingBottom:'calc(env(safe-area-inset-bottom, 0px) + 20px)',
+            maxHeight:'80vh', overflowY:'auto',
+            animation:'slideUp 0.3s cubic-bezier(0.2,0.8,0.2,1)',
+          }}>
+            <div style={{ width:36, height:5, borderRadius:3, background:'rgba(0,0,0,0.2)', margin:'4px auto 16px' }}/>
+            <div style={{ fontSize:17, fontWeight:700, marginBottom:18 }}>הגדרות</div>
+
+            <TweakField label="שמה">
+              <input value={tweaks.appName} onChange={e => setKey('appName', e.target.value)} style={inp}/>
+            </TweakField>
+            <TweakField label="שמך">
+              <input value={tweaks.partnerName} onChange={e => setKey('partnerName', e.target.value)} style={inp}/>
+            </TweakField>
+            <TweakField label="צבע">
+              <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                <input type="color" value={tweaks.accentColor} onChange={e => setKey('accentColor', e.target.value)}
+                  style={{ width:44, height:36, border:'1px solid #e0e0e0', borderRadius:8, padding:2 }}/>
+                {['#D97757','#E08A5B','#B86B8A','#7A9E7E','#6B8CAE'].map(c => (
+                  <button key={c} onClick={() => setKey('accentColor', c)} style={{
+                    width:34, height:34, borderRadius:17, background:c, flexShrink:0,
+                    border: tweaks.accentColor===c ? '3px solid #333' : '0.5px solid rgba(0,0,0,0.15)',
+                    cursor:'pointer', padding:0,
+                  }}/>
+                ))}
+              </div>
+            </TweakField>
+            <TweakField label={`יעד מים: ${tweaks.waterGoal}ml`}>
+              <input type="range" min="1500" max="3500" step="250" value={tweaks.waterGoal}
+                onChange={e => setKey('waterGoal', +e.target.value)}/>
+            </TweakField>
+            <TweakField label={`יעד קלוריות: ${tweaks.calorieGoal}`}>
+              <input type="range" min="1200" max="2500" step="50" value={tweaks.calorieGoal}
+                onChange={e => setKey('calorieGoal', +e.target.value)}/>
+            </TweakField>
+            <TweakField label={`יעד חלבון: ${tweaks.proteinGoal}g`}>
+              <input type="range" min="50" max="180" step="5" value={tweaks.proteinGoal}
+                onChange={e => setKey('proteinGoal', +e.target.value)}/>
+            </TweakField>
+            <TweakField label="עורך ארוחות">
+              <div style={{ display:'flex', gap:8 }}>
+                {[['A','עמוד אחד'],['B','אשף']].map(([k,l]) => (
+                  <button key={k} onClick={() => setKey('editorVariant', k)} style={{
+                    flex:1, padding:'10px 4px', borderRadius:10,
+                    border: tweaks.editorVariant===k ? '1.5px solid #333' : '0.5px solid #e0e0e0',
+                    background: tweaks.editorVariant===k ? '#f4f4f4' : '#fff',
+                    fontSize:13, fontWeight:500, cursor:'pointer',
+                  }}>{l}</button>
+                ))}
+              </div>
+            </TweakField>
+
+            <button onClick={() => { localStorage.removeItem(STATE_KEY); location.reload(); }}
+              style={{ marginTop:16, width:'100%', padding:'13px 0', border:'none',
+                borderRadius:12, background:'#f0f0f0', fontSize:14, cursor:'pointer' }}>
+              איפוס מצב האפליקציה
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function Root() {
+  const [tweaks, setTweaks] = React.useState(() => {
+    try {
+      const saved = localStorage.getItem('shira_tweaks_v1');
+      return saved ? { ...TWEAKS_DEFAULT, ...JSON.parse(saved) } : TWEAKS_DEFAULT;
+    } catch { return TWEAKS_DEFAULT; }
+  });
+
+  React.useEffect(() => {
+    HF.accent     = tweaks.accentColor;
+    HF.accentSoft = tweaks.accentColor + '22';
+    localStorage.setItem('shira_tweaks_v1', JSON.stringify(tweaks));
+  }, [tweaks]);
+
+  return (
+    <AppProvider>
+      <GoalsBridge tweaks={tweaks}/>
+      <AppShell tweaks={tweaks} setTweaks={setTweaks}/>
+    </AppProvider>
+  );
+}
+
+function TweakField({ label, children }) {
+  return (
+    <div style={{ marginBottom:12 }}>
+      <div style={{ fontSize:11, color:'#666', marginBottom:4, fontWeight:500 }}>{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function GoalsBridge({ tweaks }) {
+  const { setGoals } = useApp();
+  React.useEffect(() => {
+    setGoals({ water_ml: tweaks.waterGoal, calories: tweaks.calorieGoal, protein: tweaks.proteinGoal });
+  }, [tweaks.waterGoal, tweaks.calorieGoal, tweaks.proteinGoal]);
+  return null;
+}
+
+// ─── NOTIFICATION SCHEDULING ───────────────────────────────────────────────
+const NOTIF_KEY = 'shira_notif_enabled';
+
+function getNotifPermission() {
+  if (!('Notification' in window)) return 'unsupported';
+  return Notification.permission; // 'default' | 'granted' | 'denied'
+}
+
+// Clear any previously scheduled meal timers
+let _mealTimers = [];
+function clearMealTimers() {
+  _mealTimers.forEach(clearTimeout);
+  _mealTimers = [];
+}
+
+function scheduleMealNotifications(meals, minutesBefore = 5) {
+  clearMealTimers();
+  if (getNotifPermission() !== 'granted') return;
+
+  // Also tell the service worker so timers survive brief backgrounding
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'SCHEDULE_MEAL_NOTIFS', meals, minutesBefore,
+    });
+  }
+
+  const now = new Date();
+
+  meals.forEach((meal) => {
+    const [h, m] = meal.time.split(':').map(Number);
+
+    // Notification at meal time
+    const atMeal = new Date();
+    atMeal.setHours(h, m, 0, 0);
+    const msAt = atMeal - now;
+
+    // Notification N minutes before
+    const beforeMeal = new Date(atMeal - minutesBefore * 60 * 1000);
+    const msBefore = beforeMeal - now;
+
+    const fire = (title, body, tag) => {
+      try {
+        const n = new Notification(title, {
+          body,
+          tag,
+          icon: './icon-192.png',
+          badge: './icon-192.png',
+          silent: false,
+        });
+        // Auto-close after 8s
+        setTimeout(() => n.close(), 8000);
+      } catch(e) {}
+    };
+
+    if (msBefore > 0) {
+      _mealTimers.push(setTimeout(() => {
+        fire(
+          `${mealTypeName(meal.type)} בעוד ${minutesBefore} דקות 🍽️`,
+          `${meal.name} · ${meal.kcal} קק״ל`,
+          `${meal.id}_before`
+        );
+      }, msBefore));
+    }
+
+    if (msAt > 0) {
+      _mealTimers.push(setTimeout(() => {
+        fire(
+          `הגיע הזמן ל${mealTypeName(meal.type)} ✓`,
+          `${meal.name} · ${meal.kcal} קק״ל`,
+          `${meal.id}_at`
+        );
+      }, msAt));
+    }
+  });
+}
+
+async function enableNotifications(meals) {
+  if (!('Notification' in window)) {
+    alert('הדפדפן שלך אינו תומך בהתראות.\nוודאי שהאפליקציה מותקנת כ-PWA דרך Safari → שתף → הוסף למסך הבית.');
+    return false;
+  }
+  if (Notification.permission === 'denied') {
+    alert('ההתראות חסומות.\nכנסי להגדרות iPhone ← שירה ← התראות ← הפעילי.');
+    return false;
+  }
+  const perm = await Notification.requestPermission();
+  if (perm === 'granted') {
+    localStorage.setItem(NOTIF_KEY, '1');
+    scheduleMealNotifications(meals);
+    return true;
+  }
+  return false;
+}
+
+function disableNotifications() {
+  clearMealTimers();
+  localStorage.removeItem(NOTIF_KEY);
+}
+
+// ─── ME SCREEN (with live notification toggle) ─────────────────────────────
+function HFMe({ onShowNotification, appName, meals }) {
+  const { goals, resetDay } = useApp();
+  const [notifStatus, setNotifStatus] = React.useState(() => getNotifPermission());
+  const notifEnabled = notifStatus === 'granted' && localStorage.getItem(NOTIF_KEY) === '1';
+
+  // Reschedule whenever meals change (e.g. after a status update)
+  React.useEffect(() => {
+    if (notifEnabled) scheduleMealNotifications(meals);
+  }, [meals, notifEnabled]);
+
+  const handleNotifToggle = async () => {
+    if (notifEnabled) {
+      disableNotifications();
+      setNotifStatus(getNotifPermission());
+    } else {
+      const ok = await enableNotifications(meals);
+      setNotifStatus(getNotifPermission());
+      if (ok) {
+        // Show a test notification immediately so user sees it works
+        setTimeout(() => {
+          try {
+            new Notification('התראות מופעלות ✓', {
+              body: 'תקבלי תזכורת לפני כל ארוחה 🍽️',
+              icon: './icon-192.png',
+              tag: 'test',
+            });
+          } catch(e) {}
+        }, 500);
+      }
+    }
+  };
+
+  const notifLabel = () => {
+    if (!('Notification' in window)) return 'לא נתמך בדפדפן זה';
+    if (notifStatus === 'denied') return 'חסום — פתחי הגדרות';
+    if (notifEnabled) return 'פעיל';
+    return 'כבוי';
+  };
+
+  const Toggle = ({ on }) => (
+    <div style={{
+      width:51, height:31, borderRadius:16,
+      background: on ? HF.accent : '#E5E5EA',
+      position:'relative', transition:'background 0.25s',
+      flexShrink:0,
+    }}>
+      <div style={{
+        position:'absolute', top:2, left: on ? 22 : 2,
+        width:27, height:27, borderRadius:14, background:'#fff',
+        boxShadow:'0 2px 6px rgba(0,0,0,0.2)',
+        transition:'left 0.25s',
+      }}/>
+    </div>
+  );
+
+  return (
+    <div style={{ height:'100%', overflowY:'auto', paddingBottom:'calc(env(safe-area-inset-bottom, 0px) + 80px)' }}>
+      <div style={{ padding:'8px 20px 8px', paddingTop:'max(20px, calc(env(safe-area-inset-top, 0px) + 12px))' }}>
+        <div style={{ fontSize:34, fontWeight:700, letterSpacing:-0.5 }}>אני</div>
+      </div>
+      <div style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 20px' }}>
+        <div style={{
+          width:64, height:64, borderRadius:32,
+          background:`linear-gradient(135deg, ${HF.accent}, #E8A38A)`,
+          display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize:28, color:'#fff', fontWeight:700,
+        }}>{appName[0]}</div>
+        <div>
+          <div style={{ fontSize:20, fontWeight:600 }}>{appName}</div>
+          <div style={{ fontSize:13, color: HF.inkSub }}>יום 12 בתפריט</div>
+        </div>
+      </div>
+
+      <HFSection label="יעדים יומיים">
+        <HFCard padding={0}>
+          {[['מים',`${goals.water_ml/1000}L`,'💧'],['קלוריות',`${goals.calories.toLocaleString()} קק״ל`,'🔥'],['חלבון',`${goals.protein}g`,'💪']].map(([l,v,e],i,arr) => (
+            <div key={l} style={{ display:'flex', alignItems:'center', padding:'14px 16px', borderBottom:i<arr.length-1?`0.5px solid ${HF.hairline}`:'none' }}>
+              <div style={{ fontSize:20, marginLeft:12 }}>{e}</div>
+              <div style={{ flex:1, fontSize:15 }}>{l}</div>
+              <div style={{ fontSize:15, color:HF.inkSub, marginLeft:6 }}>{v}</div>
+              {Icon.chevron(HF.inkFaint)}
+            </div>
+          ))}
+        </HFCard>
+      </HFSection>
+
+      <HFSection label="תזכורות">
+        <HFCard padding={0}>
+          {/* Meal notifications — live toggle */}
+          <div onClick={handleNotifToggle} style={{ display:'flex', alignItems:'center', padding:'14px 16px', borderBottom:`0.5px solid ${HF.hairline}`, cursor:'pointer' }}>
+            <div style={{ fontSize:20, marginLeft:12 }}>🔔</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:15 }}>התראות ארוחה</div>
+              <div style={{ fontSize:12, color: notifStatus==='denied' ? '#D9534F' : HF.inkSub, marginTop:1 }}>
+                {notifLabel()}
+              </div>
+            </div>
+            <Toggle on={notifEnabled}/>
+          </div>
+          {/* Water reminder row (static for now) */}
+          <div style={{ display:'flex', alignItems:'center', padding:'14px 16px', borderBottom:`0.5px solid ${HF.hairline}` }}>
+            <div style={{ fontSize:20, marginLeft:12 }}>💧</div>
+            <div style={{ flex:1, fontSize:15 }}>תזכורת מים</div>
+            <div style={{ fontSize:15, color:HF.inkSub }}>כל שעתיים</div>
+          </div>
+          {/* Info row when notifications are on */}
+          {notifEnabled && (
+            <div style={{ padding:'12px 16px', background:'#F0FFF4', borderBottom:`0.5px solid ${HF.hairline}` }}>
+              <div style={{ fontSize:13, color:'#2D6A4F', lineHeight:1.5 }}>
+                ✓ תקבלי התראה 5 דקות לפני כל ארוחה ובדיוק בשעת הארוחה.{'\n'}
+                <span style={{ opacity:0.75 }}>ההתראות פעילות כל עוד האפליקציה פתוחה ברקע.</span>
+              </div>
+            </div>
+          )}
+          {/* iOS Web Push note */}
+          {!notifEnabled && notifStatus !== 'denied' && (
+            <div style={{ padding:'12px 16px', background:'#FFFBED' }}>
+              <div style={{ fontSize:12, color:'#5A4A2A', lineHeight:1.55 }}>
+                💡 להתראות גם כשהאפליקציה סגורה — ודאי שהאפליקציה מותקנת דרך Safari ← שתף ← הוסף למסך הבית, ושגרסת iOS שלך 16.4 ומעלה.
+              </div>
+            </div>
+          )}
+        </HFCard>
+      </HFSection>
+
+      <HFSection label="הדגמה">
+        <HFCard padding={0}>
+          <div onClick={onShowNotification} style={{ display:'flex', alignItems:'center', padding:'14px 16px', borderBottom:`0.5px solid ${HF.hairline}`, cursor:'pointer' }}>
+            <div style={{ marginLeft:12 }}>{Icon.bell(HF.accent)}</div>
+            <div style={{ flex:1, fontSize:15 }}>תצוגה מקדימה של התראה</div>
+            {Icon.chevron(HF.inkFaint)}
+          </div>
+          <div onClick={resetDay} style={{ display:'flex', alignItems:'center', padding:'14px 16px', cursor:'pointer' }}>
+            <div style={{ flex:1, fontSize:15, color:HF.accent }}>איפוס התקדמות היום</div>
+          </div>
+        </HFCard>
+      </HFSection>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Root/>);
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
