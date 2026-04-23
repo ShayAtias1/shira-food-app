@@ -172,34 +172,56 @@ function minutesUntil(t, nowMin) { return timeToMinutes(t) - nowMin; }
 function estKcal(lib) { return lib.kcal || { Breakfast:380, Snack:180, Lunch:520, Dinner:550 }[lib.type] || 300; }
 function estProtein(lib) { return lib.protein || { Breakfast:14, Snack:8, Lunch:38, Dinner:42 }[lib.type] || 15; }
 
-function computeTodayMeals(state) {
+function computeMealsForDow(state, dow, date) {
   const lib = Object.fromEntries(state.library.map(l => [l.id, l]));
   const out = [];
   state.schedule.recurring.forEach(r => {
-    if (r.dow.includes(TODAY_DOW) && lib[r.libId]) {
+    if (r.dow.includes(dow) && lib[r.libId]) {
       out.push({
         id: `today_${r.id}`, libId: r.libId, time: r.time,
         type: lib[r.libId].type, name: lib[r.libId].name,
         ingredients: lib[r.libId].ingredients,
         kcal: estKcal(lib[r.libId]), protein: estProtein(lib[r.libId]),
-        note: null,
-        mins: 15,
+        note: null, mins: 15,
       });
     }
   });
-  state.schedule.oneoff.filter(o => o.date === TODAY_DATE).forEach(o => {
-    if (lib[o.libId]) {
-      out.push({
-        id: `today_oo_${o.id}`, libId: o.libId, time: o.time,
-        type: lib[o.libId].type, name: lib[o.libId].name,
-        ingredients: lib[o.libId].ingredients,
-        kcal: estKcal(lib[o.libId]), protein: estProtein(lib[o.libId]),
-        mins: 10,
-      });
-    }
-  });
+  if (date) {
+    state.schedule.oneoff.filter(o => o.date === date).forEach(o => {
+      if (lib[o.libId]) {
+        out.push({
+          id: `today_oo_${o.id}`, libId: o.libId, time: o.time,
+          type: lib[o.libId].type, name: lib[o.libId].name,
+          ingredients: lib[o.libId].ingredients,
+          kcal: estKcal(lib[o.libId]), protein: estProtein(lib[o.libId]),
+          mins: 10,
+        });
+      }
+    });
+  }
   out.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
   return out;
+}
+
+function computeTodayMeals(state) {
+  return computeMealsForDow(state, TODAY_DOW, TODAY_DATE);
+}
+
+// Returns array of { dow, date, label } for the current week (Sun–Sat)
+function currentWeekDays() {
+  const DAY_LABELS = ['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
+  const today = new Date();
+  const sundayOffset = today.getDay(); // days since Sunday
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - sundayOffset + i);
+    return {
+      dow: i,
+      date: d.toISOString().slice(0, 10),
+      dayNum: d.getDate(),
+      label: DAY_LABELS[i],
+    };
+  });
 }
 
 function totalKcal(meals, status) {
@@ -513,39 +535,71 @@ function HFHome({ onNavigate, onOpenMeal, appName, partnerName }) {
 function HFPlan({ onOpenMeal }) {
   const { state, meals, setMealStatus, clearMeal } = useApp();
   const nowMin = state.now_minutes;
+  const weekDays = React.useMemo(() => currentWeekDays(), []);
+  const [selectedDow, setSelectedDow] = React.useState(TODAY_DOW);
+
+  const isToday = selectedDow === TODAY_DOW;
+  const selectedDay = weekDays[selectedDow];
+  const planMeals = React.useMemo(
+    () => isToday ? meals : computeMealsForDow(state, selectedDow, selectedDay.date),
+    [selectedDow, state, meals, isToday]
+  );
+
+  const DAY_NAMES_HE = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
 
   return (
     <div style={{ height:'100%', overflowY:'auto', paddingBottom:'calc(env(safe-area-inset-bottom, 0px) + 80px)' }}>
       <div style={{ padding:'8px 20px 8px', paddingTop:'max(20px, calc(env(safe-area-inset-top, 0px) + 12px))' }}>
-        <div style={{ fontSize:13, fontWeight:500, color: HF.inkSub, letterSpacing:0.3 }}>{T.today_date_short}</div>
-        <div style={{ fontSize:34, fontWeight:700, letterSpacing:-0.5, marginTop:2 }}>{T.today}</div>
+        <div style={{ fontSize:13, fontWeight:500, color: HF.inkSub, letterSpacing:0.3 }}>
+          {isToday ? T.today_date_short : `יום ${DAY_NAMES_HE[selectedDow]}, ${selectedDay.dayNum}`}
+        </div>
+        <div style={{ fontSize:34, fontWeight:700, letterSpacing:-0.5, marginTop:2 }}>
+          {isToday ? T.today : `יום ${DAY_NAMES_HE[selectedDow]}`}
+        </div>
       </div>
 
       {/* Week strip */}
       <div style={{ padding:'4px 16px 4px', display:'flex', gap:6, overflowX:'auto' }}>
-        {[['ב׳',20,false],['ג׳',21,true],['ד׳',22,false],['ה׳',23,false],['ו׳',24,false],['ש׳',25,false],['א׳',26,false]].map(([d,n,active]) => (
-          <div key={n} style={{
-            flex:1, minWidth:42, borderRadius:16, padding:'8px 0',
-            background: active ? HF.accent : HF.card,
-            color: active ? '#fff' : HF.ink, textAlign:'center',
-            boxShadow: active ? 'none' : HF.cardShadow,
-          }}>
-            <div style={{ fontSize:11, fontWeight:500, opacity: active ? 0.85 : 0.55 }}>{d}</div>
-            <div style={{ fontSize:17, fontWeight:600, direction:'ltr' }}>{n}</div>
-          </div>
-        ))}
+        {weekDays.map(({ dow, dayNum, label }) => {
+          const active = dow === selectedDow;
+          const isTodayDot = dow === TODAY_DOW;
+          return (
+            <div key={dow} onClick={() => setSelectedDow(dow)} style={{
+              flex:1, minWidth:42, borderRadius:16, padding:'8px 0',
+              background: active ? HF.accent : HF.card,
+              color: active ? '#fff' : HF.ink, textAlign:'center',
+              boxShadow: active ? 'none' : HF.cardShadow,
+              cursor:'pointer', position:'relative',
+            }}>
+              <div style={{ fontSize:11, fontWeight:500, opacity: active ? 0.85 : 0.55 }}>{label}</div>
+              <div style={{ fontSize:17, fontWeight:600, direction:'ltr' }}>{dayNum}</div>
+              {isTodayDot && !active && (
+                <div style={{
+                  position:'absolute', bottom:5, left:'50%', transform:'translateX(-50%)',
+                  width:4, height:4, borderRadius:2, background: HF.accent,
+                }}/>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Timeline */}
       <div style={{ padding:'16px 20px 0', position:'relative' }}>
         <div style={{ position:'absolute', left:64, top:24, bottom:24, width:2, background: HF.hairline }}/>
 
-        {meals.map((m) => {
-          const status  = state.mealStatus[m.id];
+        {planMeals.length === 0 && (
+          <div style={{ textAlign:'center', padding:'40px 0', color: HF.inkSub, fontSize:15 }}>
+            אין ארוחות מתוכננות ביום זה
+          </div>
+        )}
+
+        {planMeals.map((m) => {
+          const status  = isToday ? state.mealStatus[m.id] : null;
           const mTime   = timeToMinutes(m.time);
           const isDone  = status === 'done';
           const isSkip  = status === 'skipped';
-          const isNext  = !status && mTime >= nowMin;
+          const isNext  = isToday && !status && mTime >= nowMin;
           return (
             <div key={m.id} style={{ display:'flex', gap:14, alignItems:'flex-start', marginBottom:14, position:'relative' }}>
               <div style={{ width:52, paddingTop:12, textAlign:'center' }}>
@@ -579,7 +633,7 @@ function HFPlan({ onOpenMeal }) {
                     </div>
                   </div>
                 </div>
-                {!status && (
+                {isToday && !status && (
                   <div style={{ display:'flex', gap:8, marginTop:10 }}>
                     <button onClick={(e) => { e.stopPropagation(); setMealStatus(m.id,'done'); }}
                       style={{
@@ -595,7 +649,7 @@ function HFPlan({ onOpenMeal }) {
                       }}>{T.skip}</button>
                   </div>
                 )}
-                {status && (
+                {isToday && status && (
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:8 }}>
                     <div style={{ fontSize:12, fontWeight:600, color: isDone ? HF.success : HF.inkSub }}>
                       {isDone ? T.eaten : T.skipped}
