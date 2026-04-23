@@ -33,6 +33,25 @@
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+  import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCQXS7RRSbTOLmstRhcK5xozSEUbvklWIY",
+    authDomain: "shira-food.firebaseapp.com",
+    databaseURL: "https://shira-food-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "shira-food",
+    storageBucket: "shira-food.firebasestorage.app",
+    messagingSenderId: "458969408327",
+    appId: "1:458969408327:web:ddbc957615549b8a8c2262"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
+
+  window.__firebase = { db, ref, set, get, onValue };
+</script>
 </head>
 <body>
 <div id="root"></div>
@@ -54,7 +73,7 @@ const T = {
   today_date: 'יום שלישי, 21 באפריל',
   today_date_short: 'יום ג׳, 21 באפר׳',
   good_morning: 'בוקר טוב,',
-  tab_home: 'היום', tab_plan: 'תפריט', tab_library: 'ארוחות', tab_water: 'מים', tab_me: 'אני',
+  tab_home: 'היום', tab_plan: 'תפריט', tab_library: 'ארוחות', tab_water: 'מים', tab_me: 'אני', tab_progress: 'התקדמות',
   water_label: 'מים', tap_to_fill: 'הקישי למילוי ›',
   glasses_of: (a, b) => `${a} מתוך ${b} כוסות`,
   up_next: 'הבא בתור',
@@ -87,6 +106,7 @@ const Icon = {
   bell: (c) => <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 3a5 5 0 00-5 5v3l-1.5 2h13L15 11V8a5 5 0 00-5-5zM8 16a2 2 0 004 0" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   book: (c) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 4h7a3 3 0 013 3v14a2 2 0 00-2-2H4V4zM20 4h-7a3 3 0 00-3 3v14a2 2 0 012-2h8V4z" stroke={c} strokeWidth="1.8" strokeLinejoin="round"/></svg>,
   heart: (c, fill) => <svg width="16" height="16" viewBox="0 0 16 16" fill={fill||'none'}><path d="M8 14s-6-3.5-6-8a3.5 3.5 0 016-2.5A3.5 3.5 0 0114 6c0 4.5-6 8-6 8z" stroke={c} strokeWidth="1.6" strokeLinejoin="round"/></svg>,
+  trend: (c) => <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 17l5-5 4 4 9-9" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M15 7h6v6" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
 };
 
 // ─── MEAL STYLE ────────────────────────────────────────────────────────────
@@ -252,14 +272,60 @@ function saveState(s) { try { localStorage.setItem(STATE_KEY, JSON.stringify(s))
 
 const AppCtx = React.createContext(null);
 
+// ─── FIREBASE SYNC ─────────────────────────────────────────────────────────
+function fbSaveDailyLog(date, log) {
+  try {
+    const { db, ref, set } = window.__firebase || {};
+    if (!db) return;
+    set(ref(db, `logs/${date}`), log);
+  } catch(e) {}
+}
+
+function fbLoadHistory(cb) {
+  try {
+    const { db, ref, onValue } = window.__firebase || {};
+    if (!db) return;
+    onValue(ref(db, 'logs'), snap => {
+      cb(snap.val() || {});
+    });
+  } catch(e) {}
+}
+
 function AppProvider({ children }) {
   const [state, setState] = React.useState(() => loadState());
   const [goals, setGoals] = React.useState(DEFAULT_GOALS);
+  const [history, setHistory] = React.useState({});
+
   React.useEffect(() => { saveState(state); }, [state]);
+
+  // Sync today's log to Firebase whenever relevant state changes
+  React.useEffect(() => {
+    const meals = computeTodayMeals(state);
+    const kcalDone = meals.filter(m => state.mealStatus[m.id] === 'done').reduce((a,m) => a+m.kcal, 0);
+    const protDone = meals.filter(m => state.mealStatus[m.id] === 'done').reduce((a,m) => a+m.protein, 0);
+    const mealsDone = meals.filter(m => state.mealStatus[m.id] === 'done').length;
+    const mealsTotal = meals.length;
+    fbSaveDailyLog(TODAY_DATE, {
+      date: TODAY_DATE,
+      kcal: kcalDone,
+      protein: protDone,
+      water_ml: state.water_ml,
+      meals_done: mealsDone,
+      meals_total: mealsTotal,
+      water_goal: goals.water_ml,
+      kcal_goal: goals.calories,
+    });
+  }, [state.mealStatus, state.water_ml, goals]);
+
+  // Subscribe to full history from Firebase
+  React.useEffect(() => {
+    fbLoadHistory(data => setHistory(data));
+  }, []);
+
   const meals = React.useMemo(() => computeTodayMeals(state), [state]);
 
   const api = {
-    state, setState, goals, setGoals, meals,
+    state, setState, goals, setGoals, meals, history,
     library: state.library, schedule: state.schedule,
     setWater: (ml) => setState(s => ({ ...s, water_ml: Math.max(0, Math.min(goals.water_ml * 1.5, ml)) })),
     setMealStatus: (id, st) => setState(s => ({ ...s, mealStatus: { ...s.mealStatus, [id]: st } })),
@@ -294,11 +360,12 @@ const useApp = () => React.useContext(AppCtx);
 // ─── UI PRIMITIVES ─────────────────────────────────────────────────────────
 function HFTabBar({ active, onChange }) {
   const tabs = [
-    { id:'home',    label: T.tab_home,    icon: Icon.home },
-    { id:'plan',    label: T.tab_plan,    icon: Icon.cal  },
-    { id:'library', label: T.tab_library, icon: Icon.book },
-    { id:'water',   label: T.tab_water,   icon: Icon.drop },
-    { id:'me',      label: T.tab_me,      icon: Icon.user },
+    { id:'home',     label: T.tab_home,     icon: Icon.home  },
+    { id:'plan',     label: T.tab_plan,     icon: Icon.cal   },
+    { id:'library',  label: T.tab_library,  icon: Icon.book  },
+    { id:'water',    label: T.tab_water,    icon: Icon.drop  },
+    { id:'progress', label: T.tab_progress, icon: Icon.trend },
+    { id:'me',       label: T.tab_me,       icon: Icon.user  },
   ];
   return (
     <div style={{
@@ -1401,6 +1468,197 @@ function HFMealDetail({ meal, onClose, partnerName }) {
   );
 }
 
+// ─── PROGRESS SCREEN ───────────────────────────────────────────────────────
+function HFProgress({ goals }) {
+  const { history, goals: appGoals } = useApp();
+
+  // Build last 14 days sorted descending
+  const days = React.useMemo(() => {
+    const today = new Date();
+    return Array.from({ length: 14 }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const date = d.toISOString().slice(0, 10);
+      return { date, data: history[date] || null };
+    });
+  }, [history]);
+
+  const last7 = days.slice(0, 7).reverse();
+
+  // Streak: consecutive days where meals_done === meals_total and water met
+  const streak = React.useMemo(() => {
+    let s = 0;
+    for (const { data } of days) {
+      if (!data) break;
+      const mealOk = data.meals_total > 0 && data.meals_done >= data.meals_total;
+      const waterOk = data.water_ml >= (data.water_goal || appGoals.water_ml) * 0.9;
+      if (mealOk && waterOk) s++;
+      else break;
+    }
+    return s;
+  }, [days, appGoals]);
+
+  const avgKcal = React.useMemo(() => {
+    const filled = last7.filter(d => d.data);
+    if (!filled.length) return 0;
+    return Math.round(filled.reduce((a, d) => a + d.data.kcal, 0) / filled.length);
+  }, [last7]);
+
+  const avgWater = React.useMemo(() => {
+    const filled = last7.filter(d => d.data);
+    if (!filled.length) return 0;
+    return Math.round(filled.reduce((a, d) => a + d.data.water_ml, 0) / filled.length);
+  }, [last7]);
+
+  const DAY_SHORT = ['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
+
+  const maxKcal = Math.max(...last7.map(d => d.data?.kcal || 0), appGoals.calories);
+
+  return (
+    <div style={{ height:'100%', overflowY:'auto', paddingBottom:'calc(env(safe-area-inset-bottom, 0px) + 80px)' }}>
+      <div style={{ padding:'8px 20px 16px', paddingTop:'max(20px, calc(env(safe-area-inset-top, 0px) + 12px))' }}>
+        <div style={{ fontSize:13, fontWeight:500, color: HF.inkSub, letterSpacing:0.3 }}>סיכום</div>
+        <div style={{ fontSize:34, fontWeight:700, letterSpacing:-0.5, marginTop:2 }}>התקדמות</div>
+      </div>
+
+      {/* Streak + summary cards */}
+      <div style={{ padding:'0 16px', display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:20 }}>
+        {[
+          { label: 'Streak', value: streak, unit: streak === 1 ? 'יום' : 'ימים', highlight: streak > 0 },
+          { label: 'ממוצע קק״ל', value: avgKcal, unit: 'ביום', highlight: false },
+          { label: 'ממוצע מים', value: avgWater >= 1000 ? (avgWater/1000).toFixed(1) : avgWater, unit: avgWater >= 1000 ? 'ליטר' : 'מ״ל', highlight: false },
+        ].map(({ label, value, unit, highlight }) => (
+          <HFCard key={label} padding={12} style={{ textAlign:'center' }}>
+            <div style={{ fontSize: highlight ? 28 : 22, fontWeight:700, color: highlight ? HF.accent : HF.ink, letterSpacing:-0.5 }}>
+              {highlight && streak > 0 ? '🔥 ' : ''}{value}
+            </div>
+            <div style={{ fontSize:10, color: HF.inkSub, fontWeight:500, marginTop:2 }}>{unit}</div>
+            <div style={{ fontSize:10, color: HF.inkFaint, marginTop:1 }}>{label}</div>
+          </HFCard>
+        ))}
+      </div>
+
+      {/* Calorie bar chart */}
+      <div style={{ padding:'0 16px', marginBottom:20 }}>
+        <HFCard padding={16}>
+          <div style={{ fontSize:13, fontWeight:600, color: HF.inkSub, letterSpacing:0.3, marginBottom:14 }}>קלוריות — 7 ימים אחרונים</div>
+          <div style={{ display:'flex', alignItems:'flex-end', gap:6, height:80 }}>
+            {last7.map(({ date, data }) => {
+              const kcal = data?.kcal || 0;
+              const pct  = maxKcal > 0 ? kcal / maxKcal : 0;
+              const isToday = date === TODAY_DATE;
+              return (
+                <div key={date} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                  <div style={{ fontSize:9, color: HF.inkSub, direction:'ltr' }}>{kcal > 0 ? kcal : ''}</div>
+                  <div style={{
+                    width:'100%', borderRadius:4,
+                    height: Math.max(4, pct * 60),
+                    background: isToday ? HF.accent : kcal > 0 ? HF.accentSoft : HF.hairline,
+                    border: isToday ? 'none' : `1px solid ${HF.hairline}`,
+                    transition:'height 0.4s ease',
+                  }}/>
+                  <div style={{ fontSize:10, fontWeight: isToday ? 700 : 400, color: isToday ? HF.accent : HF.inkSub }}>
+                    {DAY_SHORT[new Date(date + 'T12:00:00').getDay()]}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {/* Goal line label */}
+          <div style={{ fontSize:10, color: HF.inkSub, marginTop:8, textAlign:'center' }}>
+            יעד: {appGoals.calories.toLocaleString()} קק״ל
+          </div>
+        </HFCard>
+      </div>
+
+      {/* Water bar chart */}
+      <div style={{ padding:'0 16px', marginBottom:20 }}>
+        <HFCard padding={16}>
+          <div style={{ fontSize:13, fontWeight:600, color: HF.inkSub, letterSpacing:0.3, marginBottom:14 }}>מים — 7 ימים אחרונים</div>
+          <div style={{ display:'flex', alignItems:'flex-end', gap:6, height:80 }}>
+            {last7.map(({ date, data }) => {
+              const ml   = data?.water_ml || 0;
+              const goal = appGoals.water_ml;
+              const pct  = Math.min(1, ml / goal);
+              const isToday = date === TODAY_DATE;
+              return (
+                <div key={date} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                  <div style={{ fontSize:9, color: HF.inkSub }}>{ml >= 1000 ? `${(ml/1000).toFixed(1)}L` : ml > 0 ? ml : ''}</div>
+                  <div style={{
+                    width:'100%', borderRadius:4,
+                    height: Math.max(4, pct * 60),
+                    background: isToday ? HF.water : ml > 0 ? HF.waterSoft : HF.hairline,
+                    border: isToday ? 'none' : `1px solid ${HF.hairline}`,
+                    transition:'height 0.4s ease',
+                  }}/>
+                  <div style={{ fontSize:10, fontWeight: isToday ? 700 : 400, color: isToday ? HF.water : HF.inkSub }}>
+                    {DAY_SHORT[new Date(date + 'T12:00:00').getDay()]}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ fontSize:10, color: HF.inkSub, marginTop:8, textAlign:'center' }}>
+            יעד: {(appGoals.water_ml/1000).toFixed(1)} ליטר
+          </div>
+        </HFCard>
+      </div>
+
+      {/* Daily log history */}
+      <div style={{ padding:'0 16px' }}>
+        <div style={{ fontSize:13, fontWeight:600, color: HF.inkSub, letterSpacing:0.3, marginBottom:10 }}>יומן אחרון</div>
+        <HFCard padding={0}>
+          {days.filter(d => d.data).slice(0, 10).map(({ date, data }, i, arr) => {
+            const d = new Date(date + 'T12:00:00');
+            const isToday = date === TODAY_DATE;
+            const mealPct = data.meals_total > 0 ? Math.round(data.meals_done / data.meals_total * 100) : 0;
+            const waterPct = Math.min(100, Math.round(data.water_ml / (data.water_goal || appGoals.water_ml) * 100));
+            return (
+              <div key={date} style={{
+                padding:'12px 16px',
+                borderBottom: i < arr.length - 1 ? `0.5px solid ${HF.hairline}` : 'none',
+              }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                  <div>
+                    <div style={{ fontSize:14, fontWeight:600 }}>
+                      {isToday ? 'היום' : d.toLocaleDateString('he-IL', { weekday:'short', day:'numeric', month:'short' })}
+                    </div>
+                    <div style={{ fontSize:11, color: HF.inkSub, marginTop:1 }}>
+                      {data.kcal} קק״ל · {(data.water_ml/1000).toFixed(1)}L · {data.meals_done}/{data.meals_total} ארוחות
+                    </div>
+                  </div>
+                  <div style={{
+                    width:36, height:36, borderRadius:18,
+                    background: mealPct === 100 && waterPct >= 90 ? HF.success : HF.cardAlt,
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    fontSize:16,
+                  }}>
+                    {mealPct === 100 && waterPct >= 90 ? '✓' : mealPct >= 50 ? '~' : '·'}
+                  </div>
+                </div>
+                {/* Mini bars */}
+                <div style={{ display:'flex', gap:6 }}>
+                  <div style={{ flex:1, height:3, borderRadius:2, background: HF.hairline, overflow:'hidden' }}>
+                    <div style={{ width:`${Math.min(100, data.kcal / (data.kcal_goal || appGoals.calories) * 100)}%`, height:'100%', background: HF.accent, borderRadius:2 }}/>
+                  </div>
+                  <div style={{ flex:1, height:3, borderRadius:2, background: HF.hairline, overflow:'hidden' }}>
+                    <div style={{ width:`${waterPct}%`, height:'100%', background: HF.water, borderRadius:2 }}/>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {days.filter(d => d.data).length === 0 && (
+            <div style={{ padding:'32px 16px', textAlign:'center', color: HF.inkSub, fontSize:14 }}>
+              עוד אין נתונים — התחילי לסמן ארוחות ומים!
+            </div>
+          )}
+        </HFCard>
+      </div>
+    </div>
+  );
+}
+
 // ─── ME SCREEN ─────────────────────────────────────────────────────────────
 // ─── LOCKSCREEN ────────────────────────────────────────────────────────────
 function Lockscreen({ onClose, appName, partnerName }) {
@@ -1500,11 +1758,12 @@ function AppShell({ tweaks, setTweaks }) {
       <div style={{ position:'fixed', inset:0, overflow:'hidden', background:HF.bg }}>
         {/* Screen */}
         <div style={{ position:'absolute', inset:0, bottom:0 }}>
-          {tab==='home'    && <HFHome    onNavigate={setTab} onOpenMeal={setOpenMeal} appName={tweaks.appName} partnerName={tweaks.partnerName}/>}
-          {tab==='plan'    && <HFPlan    onOpenMeal={setOpenMeal}/>}
-          {tab==='library' && <HFLibrary onEdit={(m) => setEditMeal(m)} onSchedule={(m) => setScheduleMeal(m)} onCreate={() => setEditMeal({})}/>}
-          {tab==='water'   && <HFWater/>}
-          {tab==='me'      && <HFMe      onShowNotification={() => setLockscreen(true)} appName={tweaks.appName} meals={meals}/>}
+          {tab==='home'     && <HFHome     onNavigate={setTab} onOpenMeal={setOpenMeal} appName={tweaks.appName} partnerName={tweaks.partnerName}/>}
+          {tab==='plan'     && <HFPlan     onOpenMeal={setOpenMeal}/>}
+          {tab==='library'  && <HFLibrary  onEdit={(m) => setEditMeal(m)} onSchedule={(m) => setScheduleMeal(m)} onCreate={() => setEditMeal({})}/>}
+          {tab==='water'    && <HFWater/>}
+          {tab==='progress' && <HFProgress goals={tweaks}/>}
+          {tab==='me'       && <HFMe       onShowNotification={() => setLockscreen(true)} appName={tweaks.appName} meals={meals}/>}
 
           {openMeal     && <HFMealDetail    meal={openMeal}     onClose={() => setOpenMeal(null)}     partnerName={tweaks.partnerName}/>}
           {lockscreen   && <Lockscreen      onClose={() => setLockscreen(false)} appName={tweaks.appName} partnerName={tweaks.partnerName}/>}
