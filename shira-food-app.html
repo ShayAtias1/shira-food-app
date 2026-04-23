@@ -1763,7 +1763,7 @@ function AppShell({ tweaks, setTweaks }) {
           {tab==='library'  && <HFLibrary  onEdit={(m) => setEditMeal(m)} onSchedule={(m) => setScheduleMeal(m)} onCreate={() => setEditMeal({})}/>}
           {tab==='water'    && <HFWater/>}
           {tab==='progress' && <HFProgress goals={tweaks}/>}
-          {tab==='me'       && <HFMe       onShowNotification={() => setLockscreen(true)} appName={tweaks.appName} meals={meals}/>}
+          {tab==='me'       && <HFMe       onShowNotification={() => setLockscreen(true)} appName={tweaks.appName} meals={meals} tweaks={tweaks} setKey={setKey}/>}
 
           {openMeal     && <HFMealDetail    meal={openMeal}     onClose={() => setOpenMeal(null)}     partnerName={tweaks.partnerName}/>}
           {lockscreen   && <Lockscreen      onClose={() => setLockscreen(false)} appName={tweaks.appName} partnerName={tweaks.partnerName}/>}
@@ -2002,9 +2002,10 @@ function disableNotifications() {
 }
 
 // ─── ME SCREEN (with live notification toggle) ─────────────────────────────
-function HFMe({ onShowNotification, appName, meals }) {
+function HFMe({ onShowNotification, appName, meals, tweaks, setKey }) {
   const { goals, resetDay } = useApp();
   const [notifStatus, setNotifStatus] = React.useState(() => getNotifPermission());
+  const [editingGoal, setEditingGoal] = React.useState(null); // 'water' | 'calories' | 'protein' | null
   const notifEnabled = notifStatus === 'granted' && localStorage.getItem(NOTIF_KEY) === '1';
 
   // Reschedule whenever meals change (e.g. after a status update)
@@ -2077,12 +2078,33 @@ function HFMe({ onShowNotification, appName, meals }) {
 
       <HFSection label="יעדים יומיים">
         <HFCard padding={0}>
-          {[['מים',`${goals.water_ml/1000}L`,'💧'],['קלוריות',`${goals.calories.toLocaleString()} קק״ל`,'🔥'],['חלבון',`${goals.protein}g`,'💪']].map(([l,v,e],i,arr) => (
-            <div key={l} style={{ display:'flex', alignItems:'center', padding:'14px 16px', borderBottom:i<arr.length-1?`0.5px solid ${HF.hairline}`:'none' }}>
-              <div style={{ fontSize:20, marginLeft:12 }}>{e}</div>
-              <div style={{ flex:1, fontSize:15 }}>{l}</div>
-              <div style={{ fontSize:15, color:HF.inkSub, marginLeft:6 }}>{v}</div>
-              {Icon.chevron(HF.inkFaint)}
+          {[
+            { key:'water',    label:'מים',      icon:'💧', value:`${(goals.water_ml/1000).toFixed(1)}L`,          tweakKey:'waterGoal',    min:1000, max:4000, step:250, unit:'מ״ל', tweakVal: tweaks?.waterGoal    },
+            { key:'calories', label:'קלוריות',   icon:'🔥', value:`${goals.calories.toLocaleString()} קק״ל`,       tweakKey:'calorieGoal',  min:1200, max:3000, step:50,  unit:'קק״ל',tweakVal: tweaks?.calorieGoal  },
+            { key:'protein',  label:'חלבון',     icon:'💪', value:`${goals.protein}g`,                             tweakKey:'proteinGoal',  min:50,   max:200,  step:5,   unit:'גרם', tweakVal: tweaks?.proteinGoal  },
+          ].map(({ key, label, icon, value, tweakKey, min, max, step, unit, tweakVal }, i, arr) => (
+            <div key={key}>
+              <div onClick={() => setEditingGoal(editingGoal === key ? null : key)}
+                style={{ display:'flex', alignItems:'center', padding:'14px 16px',
+                  borderBottom: editingGoal === key ? 'none' : i < arr.length-1 ? `0.5px solid ${HF.hairline}` : 'none',
+                  cursor:'pointer' }}>
+                <div style={{ fontSize:20, marginLeft:12 }}>{icon}</div>
+                <div style={{ flex:1, fontSize:15 }}>{label}</div>
+                <div style={{ fontSize:15, color: editingGoal===key ? HF.accent : HF.inkSub, fontWeight: editingGoal===key ? 600 : 400, marginLeft:6 }}>{value}</div>
+                <div style={{ marginRight:4, transform: editingGoal===key ? 'rotate(90deg)' : 'none', transition:'transform 0.2s' }}>{Icon.chevron(editingGoal===key ? HF.accent : HF.inkFaint)}</div>
+              </div>
+              {editingGoal === key && tweaks && (
+                <div style={{ padding:'4px 16px 16px', borderBottom: i < arr.length-1 ? `0.5px solid ${HF.hairline}` : 'none', background:'#FAFAFA' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, color:HF.inkSub, marginBottom:8 }}>
+                    <span>{min} {unit}</span>
+                    <span style={{ fontWeight:600, color:HF.accent }}>{tweakVal} {unit}</span>
+                    <span>{max} {unit}</span>
+                  </div>
+                  <input type="range" min={min} max={max} step={step} value={tweakVal}
+                    onChange={e => setKey(tweakKey, +e.target.value)}
+                    style={{ width:'100%' }}/>
+                </div>
+              )}
             </div>
           ))}
         </HFCard>
